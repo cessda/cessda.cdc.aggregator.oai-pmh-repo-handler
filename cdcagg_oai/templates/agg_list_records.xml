@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OAI-PMH 
+    xmlns="http://www.openarchives.org/OAI/2.0/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/ http://www.openarchives.org/OAI/2.0/OAI-PMH.xsd"
+    xmlns:xi="http://www.w3.org/2001/XInclude"
+    xmlns:py="http://genshi.edgewall.org/">
+  <xi:include href="oai_pmh_template.xml" />
+  <ListRecords py:with="resumption_token = response_metadata.resumption_token">
+    <record py:for="record in metadata.records">
+      <header>
+        <identifier>${record.headers.identifier}</identifier>
+        <datestamp>${record.headers.datestamp}</datestamp>
+        <setSpec py:for="key, spec in record.headers.iterate_set_specs()">${key}:${spec}</setSpec>
+      </header>
+      <metadata>
+        <xi:include href="${genplate.subtemplate}" />
+      </metadata>
+      <about>
+        <xi:include href="provenance.xml" />
+      </about>
+    </record>
+    <xi:include href="resumption_token.xml"/>
+  </ListRecords>
+</OAI-PMH>

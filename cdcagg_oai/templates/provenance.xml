@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<provenance
+    xmlns="http://www.openarchives.org/OAI/2.0/provenance"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/provenance http://www.openarchives.org/OAI/2.0/provenance.xsd"
+    xmlns:py="http://genshi.edgewall.org/">
+  <py:def function="render_container(prov, next_index=None)"
+          py:with="next_index = None if len(record.study._provenance) == next_index else next_index">
+    <originDescription harvestDate="${prov.get_value()}" altered="${prov.attr_altered.get_value()}">
+      <baseUrl>${prov.attr_base_url.get_value()}</baseUrl>
+      <identifier>${prov.attr_identifier.get_value()}</identifier>
+      <datestamp>${prov.attr_datestamp.get_value()}</datestamp>
+      <metadataNamespace>${prov.attr_metadata_namespace.get_value()}</metadataNamespace>
+      <py:if test="next_index">
+        ${render_container(record.study._provenance[next_index], next_index=next_index + 1)}
+      </py:if>
+    </originDescription>
+  </py:def>
+  ${render_container(record.study._provenance[0], next_index=1)}
+</provenance>

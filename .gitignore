@@ -13,6 +13,12 @@ dist/
 # Compiled Python bytecode
 *.py[cod]
 
+# Compiled Python egg
+*.egg-info
+
+# Tox environment
+*.tox
+
 # Log files
 *.log
 

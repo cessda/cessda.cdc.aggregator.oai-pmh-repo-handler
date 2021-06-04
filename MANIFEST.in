@@ -1,0 +1,5 @@
+recursive-include cdcagg_oai/templates *.xml
+include VERSION
+include *.rst
+include *.md
+include *.txt
