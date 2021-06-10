@@ -1,6 +1,30 @@
+from argparse import Namespace
+from xml.etree import ElementTree
+from inspect import iscoroutinefunction
 from unittest import mock
+from tornado.testing import AsyncHTTPTestCase
+from kuha_common.testing import mock_coro
 from kuha_common.testing.testcases import KuhaUnitTestCase
-from cdcagg_oai import serve
+from kuha_common.document_store.constants import REC_STATUS_DELETED
+from kuha_oai_pmh_repo_handler.oai.constants import (
+    OAI_REC_NAMESPACE_IDENTIFIER,
+    OAI_RESPONSE_LIST_SIZE,
+    OAI_PROTOCOL_VERSION,
+    OAI_RESPOND_WITH_REQ_URL,
+    OAI_REPO_NAME
+)
+from cdcagg_common.records import Study
+
+from cdcagg_oai import (
+    serve,
+    metadataformats
+)
+
+API_VERSION = 'v0'
+OAI_URL = '/' + API_VERSION + '/oai'
+XMLNS = {'oai': 'http://www.openarchives.org/OAI/2.0/',
+         'oai_p': 'http://www.openarchives.org/OAI/2.0/provenance'}
+MD_PREFIXES = ('oai_dc', 'oai_ddi25')
 
 
 class TestConfigure(KuhaUnitTestCase):
@@ -13,3 +37,281 @@ class TestConfigure(KuhaUnitTestCase):
         serve.configure([])
         mock_conf.load.assert_called_once_with(
             prog='cdcagg_oai', package='cdcagg_oai', env_var_prefix='CDCAGG_')
+
+
+def _query_single(result):
+    async def _inner_query_single(record, on_record, **_discard):
+        await on_record(result)
+    return _inner_query_single
+
+
+def _query_multiple(result):
+    async def _inner_query_multiple(record, on_record, **_discard):
+        is_coro = iscoroutinefunction(on_record)
+        for rec in result[record.get_collection()]:
+            if is_coro:
+                await on_record(rec)
+            else:
+                on_record(rec)
+    return _inner_query_multiple
+
+
+class TestHTTPResponses(AsyncHTTPTestCase):
+
+    _settings = None
+
+    @classmethod
+    def settings(cls, **kw):
+        if cls._settings is not None:
+            raise ValueError("_settings is already defined.")
+        cls._settings = Namespace(
+            oai_pmh_respond_with_requested_url=kw.get('oai_pmh_respond_with_requested_url',
+                                                      OAI_RESPOND_WITH_REQ_URL),
+            oai_pmh_repo_name=kw.get('oai_pmh_repo_name',
+                                     OAI_REPO_NAME),
+            oai_pmh_protocol_version=kw.get('oai_pmh_protocol_version',
+                                            OAI_PROTOCOL_VERSION),
+            oai_pmh_list_size_oai_dc=kw.get('oai_pmh_list_size_oai_dc',
+                                            OAI_RESPONSE_LIST_SIZE),
+            oai_pmh_list_size_ead3=kw.get('oai_pmh_list_size_ead3',
+                                          OAI_RESPONSE_LIST_SIZE),
+            oai_pmh_list_size_ddi_c=kw.get('oai_pmh_list_size_ddi_c',
+                                           OAI_RESPONSE_LIST_SIZE),
+            oai_pmh_list_size_oai_ddi25=kw.get('oai_pmh_list_size_oai_ddi25',
+                                               OAI_RESPONSE_LIST_SIZE),
+            oai_pmh_namespace_identifier=kw.get('oai_pmh_namespace_identifier',
+                                                OAI_REC_NAMESPACE_IDENTIFIER),
+            oai_pmh_base_url=kw.get('oai_pmh_base_url',
+                                    'base'),
+            oai_pmh_admin_email=kw.get('oai_pmh_admin_email',
+                                       'email'),
+            template_folder=kw.get(
+                'template_folder',
+                metadataformats.AggMetadataFormatBase.default_template_folders))
+        return cls._settings
+
+    @classmethod
+    def _clear_settings(cls):
+        cls._settings = None
+
+    def setUp(self):
+        self._patchers = []
+        # Mock out query oontroller methods in order to control returned records
+        self._mock_query_single = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_single'))
+        self._mock_query_multiple = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_multiple'))
+        self._mock_query_distinct = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_distinct'))
+        self._mock_query_count = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_count'))
+        super().setUp()
+
+    def tearDown(self):
+        for patcher in self._patchers:
+            patcher.stop()
+        self._clear_settings()
+        super().tearDown()
+
+    def _init_patcher(self, patcher):
+        mocked = patcher.start()
+        self._patchers.append(patcher)
+        return mocked
+
+    def get_app(self):
+        if self._settings is None:
+            self.settings()
+        mdformats = serve.load_metadataformats('cdcagg.oai.metadataformats')
+        for mdf in mdformats:
+            mdf.configure(self._settings)
+        ctrl = serve.controller.from_settings(self._settings, mdformats)
+        return serve.http_api.get_app(API_VERSION, controller=ctrl)
+
+    def oai_request(self, return_record=None, return_relatives=None, **req_args):
+        return_relatives = return_relatives or {}
+        verb = req_args.get('verb', 'GetRecord')
+        md_prefix = req_args.get('metadata_prefix', 'oai_dc')
+        identifier = req_args.get('identifier', 'some_id')
+        self._mock_query_single.side_effect = mock_coro(func=_query_single(return_record))
+        self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple(return_relatives))
+        self._requested_url = (OAI_URL + '?verb={verb}&metadataPrefix={md_prefix}&'
+                               'identifier={id}'.format(
+                                   verb=verb, md_prefix=md_prefix, id=identifier))
+        return self.fetch(self._requested_url)
+
+    def _assert_oai_header_request_attributes(self, response, expected_attrs, msg=None):
+        response_xml = self._resp_to_xmlel(response)
+        request_element = response_xml.find('./oai:request', XMLNS)
+        self.assertEqual(request_element.attrib, expected_attrs, msg=msg)
+
+    @staticmethod
+    def _resp_to_xmlel(resp):
+        return ElementTree.fromstring(resp.body)
+
+    def test_responds_with_missing_verb(self):
+        xml = self._resp_to_xmlel(self.fetch(OAI_URL))
+        self.assertEqual(''.join(xml.find('oai:error', XMLNS).itertext()), 'Missing verb')
+
+    # GETRECORD
+
+    def test_GET_getrecord_returns_correct_oai_header(self):
+        study = Study()
+        study.add_study_number('study_id')
+        study._provenance.add_value('2020-01-01T23:00.00Z', altered=True, base_url='some.base',
+                                    identifier='some:identifier', datestamp='1999-01-01',
+                                    direct=True, metadata_namespace='somenamespace')
+        for metadata_prefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=metadata_prefix):
+                resp = self.oai_request(study, verb='GetRecord', metadata_prefix=metadata_prefix,
+                                        identifier='study_id')
+                self._assert_oai_header_request_attributes(resp, {'verb': 'GetRecord',
+                                                                  'identifier': 'study_id',
+                                                                  'metadataPrefix': metadata_prefix})
+
+    def _assert_origindesc(self, origindesc_el, exp_attrs,
+                           exp_baseurl, exp_identifier,
+                           exp_datestamp, exp_namespace):
+        self.assertEqual(origindesc_el.attrib, exp_attrs)
+        self.assertEqual(''.join(origindesc_el.find('./oai_p:baseUrl', XMLNS).itertext()),
+                         exp_baseurl)
+        self.assertEqual(''.join(origindesc_el.find('./oai_p:identifier', XMLNS).itertext()),
+                         exp_identifier)
+        self.assertEqual(''.join(origindesc_el.find('./oai_p:datestamp', XMLNS).itertext()),
+                         exp_datestamp)
+        self.assertEqual(''.join(origindesc_el.find('./oai_p:metadataNamespace', XMLNS).itertext()),
+                         exp_namespace)
+
+    def test_GET_getrecord_returns_correct_provenance_info(self):
+        study = Study()
+        study.add_study_number('study_id')
+        study._provenance.add_value('2020-01-01T23:00.00Z', altered=True, base_url='some.base',
+                                    identifier='some:identifier', datestamp='1999-01-01',
+                                    direct=True, metadata_namespace='somenamespace')
+        study._provenance.add_value('2019-01-01T23:00.00Z', altered=False, base_url='another.base',
+                                    identifier='another:identifier', datestamp='1998-01-01',
+                                    direct=False, metadata_namespace='anothernamespace')
+        for metadata_prefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=metadata_prefix):
+                resp = self.oai_request(study, verb='GetRecord', metadata_prefix=metadata_prefix,
+                                        identifier='study_id')
+                xmlel = self._resp_to_xmlel(resp)
+                origindesc_el = xmlel.find(
+                    './oai:GetRecord/oai:record/oai:about/oai_p:provenance/oai_p:originDescription', XMLNS)
+                self._assert_origindesc(origindesc_el, {'altered': 'True', 'harvestDate': '2020-01-01T23:00.00Z'},
+                                        'some.base', 'some:identifier', '1999-01-01', 'somenamespace')
+                # Nested origindesc
+                nested_origindesc_el = origindesc_el.find('./oai_p:originDescription', XMLNS)
+                self._assert_origindesc(nested_origindesc_el, {'altered': 'False',
+                                                               'harvestDate': '2019-01-01T23:00.00Z'},
+                                        'another.base', 'another:identifier', '1998-01-01',
+                                        'anothernamespace')
+
+    def test_GET_getrecord_returns_correct_xml_if_record_is_deleted(self):
+        """Header is correct if a record has been deleted
+
+        If a repository does keep track of deletions then the
+        datestamp of the deleted record must be the date and time that
+        it was deleted. Responses to GetRecord request for a deleted
+        record must then include a header with the attribute
+        status="deleted", and must not include metadata or about
+        parts.
+          - http://www.openarchives.org/OAI/2.0/openarchivesprotocol.htm
+        """
+        study = Study()
+        study.add_study_number('someid')
+        study._metadata.attr_status.set_value(REC_STATUS_DELETED)
+        study.set_deleted('2000-01-01T23:00:00Z')
+        for mdprefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=mdprefix):
+                response_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                                   metadata_prefix=mdprefix,
+                                                                   identifier='someid'))
+                header_el = response_el.find('./oai:GetRecord/oai:record/oai:header', XMLNS)
+                # Datestamp of the deleted record must be the date and time that it was deleted.
+                self.assertEqual(''.join(header_el.find('./oai:datestamp', XMLNS).itertext()),
+                                 '2000-01-01T23:00:00Z')
+                # Responses for a deleted record must include a header with the attribute status="deleted"
+                self.assertEqual(header_el.get('status'), 'deleted')
+                # ... and must not include metadata
+                self.assertIsNone(response_el.find('./oai:GetRecord/oai:record/oai:metadata', XMLNS))
+                # ... or about parts
+                self.assertIsNone(response_el.find('./oai:GetRecord/oai:record/oai:about', XMLNS))
+
+    # LISTSETS
+
+    def test_GET_listsets_returns_correct_sets(self):
+        async def _query_distinct(record, headers=None, fieldname=None, _filter=None):
+            return {fieldname.path: {
+                'study_titles.language': ['fi', 'en'],
+                '_provenance.base_url': ['some.base.url', 'http://services.fsd.tuni.fi/v0/oai']
+            }}[fieldname.path]
+        self._mock_query_distinct.side_effect = mock_coro(func=_query_distinct)
+        resp = self.fetch(OAI_URL + '?verb=ListSets')
+        xml_el = self._resp_to_xmlel(resp)
+        set_els = xml_el.findall('./oai:ListSets/oai:set', XMLNS)
+        # Six set elements: One for each set type: 'spec: language, name: Language'
+        # and one for each value: 'spec: language:en'
+        self.assertEqual(len(set_els), 6)
+        exp_sets = {'language': 'Language',
+                    'language:fi': '',
+                    'language:en': '',
+                    'source': 'Source archive',
+                    'source:some.base.url': '',
+                    'source:FSD': ''}
+        for set_el in set_els:
+            spec = ''.join(set_el.find('./oai:setSpec', XMLNS).itertext())
+            name = ''.join(set_el.find('./oai:setName', XMLNS).itertext())
+            self.assertIn(spec, exp_sets)
+            exp_name = exp_sets.pop(spec)
+            self.assertEqual(name, exp_name)
+
+    # LISTRECORDS
+
+    def test_GET_listrecords_returns_correct_xml_for_deleted_records(self):
+        # Mock & format
+        study_1, study_2, study_3 = [Study() for _ in range(3)]
+        self._mock_query_count.side_effect = mock_coro(3)
+        study_1.add_study_number('study_1')
+        study_1._metadata.attr_status.set_value(REC_STATUS_DELETED)
+        study_1.set_deleted('2000-01-01T23:24:25Z')
+        study_1._provenance.add_value('2020-01-01T23:00.00Z', altered=True, base_url='some.base',
+                                      identifier='some:identifier', datestamp='1999-01-01',
+                                      direct=True, metadata_namespace='somenamespace')
+        study_1._aggregator_identifier.set_value('first_identifier')
+        study_2.add_study_number('study_2')
+        study_2.set_updated('2001-01-01T23:23:23Z')
+        study_2._provenance.add_value('2020-01-01T23:00.00Z', altered=True, base_url='some.base',
+                                      identifier='some:identifier', datestamp='1999-01-01',
+                                      direct=True, metadata_namespace='somenamespace')
+        study_2._aggregator_identifier.set_value('second_identifier')
+        study_3._metadata.attr_status.set_value(REC_STATUS_DELETED)
+        study_3.set_deleted('2002-01-01T23:24:25Z')
+        study_3.add_study_number('study_3')
+        study_3._provenance.add_value('2020-01-01T23:00.00Z', altered=True, base_url='some.base',
+                                      identifier='some:identifier', datestamp='1999-01-01',
+                                      direct=True, metadata_namespace='somenamespace')
+        study_3._aggregator_identifier.set_value('third_identifier')
+        self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple(
+            {'studies': [study_1, study_2, study_3],
+             'variables': [],
+             'questions': []}))
+        for mdprefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=mdprefix):
+                exp_headers = {'first_identifier': ('2000-01-01T23:24:25Z', True),
+                               'second_identifier': ('2001-01-01T23:23:23Z', False),
+                               'third_identifier': ('2002-01-01T23:24:25Z', True)}
+                resp = self.fetch(OAI_URL + '?verb=ListRecords&metadataPrefix={md}'.format(md=mdprefix))
+                self.assertEqual(resp.code, 200)
+                xml = self._resp_to_xmlel(resp)
+                rec_els = xml.findall('./oai:ListRecords/oai:record', XMLNS)
+                self.assertEqual(len(rec_els), 3)
+                for rec_el in rec_els:
+                    identifier = ''.join(rec_el.find('./oai:header/oai:identifier', XMLNS).itertext())
+                    self.assertIn(identifier, exp_headers)
+                    exp_dt, exp_deleted_status = exp_headers.pop(identifier)
+                    self.assertEqual(''.join(rec_el.find('./oai:header/oai:datestamp', XMLNS).itertext()),
+                                     exp_dt)
+                    if exp_deleted_status:
+                        self.assertEqual(rec_el.find('./oai:header', XMLNS).get('status'), 'deleted')
+                        self.assertIsNone(rec_el.find('./oai:metadata', XMLNS))
+                self.assertEqual(exp_headers, {})

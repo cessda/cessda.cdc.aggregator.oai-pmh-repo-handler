@@ -8,15 +8,15 @@
   <xi:include href="oai_pmh_template.xml" />
   <GetRecord>
     <record py:with="record = metadata.record">
-      <header>
+      <header py:attrs="{'status': 'deleted'} if record.headers.deleted else {}">
         <identifier>${record.headers.identifier}</identifier>
         <datestamp>${record.headers.datestamp}</datestamp>
         <setSpec py:for="key, spec in record.headers.iterate_set_specs()">${key}:${spec}</setSpec>
       </header>
-      <metadata>
+      <metadata py:if="record.headers.deleted is False">
         <xi:include href="${genplate.subtemplate}" />
       </metadata>
-      <about>
+      <about py:if="record.headers.deleted is False">
         <xi:include href="provenance.xml" />
       </about>
     </record>

@@ -19,8 +19,8 @@ setup(name='cdcagg_oai',
       include_package_data=True,
       entry_points={
         'cdcagg.oai.metadataformats': [
-            'AggOAIDDI25MetadataFormat = cdcagg.oaipmh.metadataformats:AggOAIDDI25MetadataFormat',
-            'AggDCMetadataFormat = cdcagg.oaipmh.metadataformats:AggDCMetadataFormat']},
+            'AggOAIDDI25MetadataFormat = cdcagg_oai.metadataformats:AggOAIDDI25MetadataFormat',
+            'AggDCMetadataFormat = cdcagg_oai.metadataformats:AggDCMetadataFormat']},
       classifiers=(
           'Development Status :: 1 - Planning',
           'Environment :: Console',

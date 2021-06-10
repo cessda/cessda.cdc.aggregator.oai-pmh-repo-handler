@@ -45,14 +45,14 @@ async def _filter_for_source(md, value):
 
 class AggMetadataFormatBase(MetadataFormatBase):
 
-    _default_template_folders = MetadataFormatBase._default_template_folders + [
+    default_template_folders = MetadataFormatBase.default_template_folders + [
         os.path.join(os.path.dirname(os.path.realpath(__file__)), TEMPLATE_FOLDER)]
     study_class = Study
-    _sets = [MetadataFormatBase.get_set('language'),
-             MetadataFormatBase.MDSet(spec='source',
-                                      get=_get_source_from_record,
-                                      query=_query_source_for_set,
-                                      filter_=_filter_for_source)]
+    sets = [MetadataFormatBase.get_set('language'),
+            MetadataFormatBase.MDSet(spec='source',
+                                     get=_get_source_from_record,
+                                     query=_query_source_for_set,
+                                     filter_=_filter_for_source)]
 
     @property
     def _header_fields(self):
@@ -61,11 +61,12 @@ class AggMetadataFormatBase(MetadataFormatBase):
 
     async def _on_record(self, study, **record_obj):
         setspecs = {}
-        for set_ in self._sets:
+        for set_ in self.sets:
             setspecs.update({set_.spec: await set_.get(study)})
         record_obj['study'] = study
+        datestamp = study.get_deleted() if study.is_deleted() else study.get_updated()
         await self._add_record(study._aggregator_identifier.get_value(),
-                               study.get_updated(), record_obj, setspecs)
+                               datestamp, record_obj, setspecs, study.is_deleted())
 
     async def _has_record(self):
         result = await QueryController().query_single(
