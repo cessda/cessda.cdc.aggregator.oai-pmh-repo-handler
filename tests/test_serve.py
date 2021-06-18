@@ -24,7 +24,7 @@ API_VERSION = 'v0'
 OAI_URL = '/' + API_VERSION + '/oai'
 XMLNS = {'oai': 'http://www.openarchives.org/OAI/2.0/',
          'oai_p': 'http://www.openarchives.org/OAI/2.0/provenance'}
-MD_PREFIXES = ('oai_dc', 'oai_ddi25')
+MD_PREFIXES = ('oai_dc', 'oai_ddi25', 'oai_datacite')
 
 
 class TestConfigure(KuhaUnitTestCase):
@@ -73,12 +73,10 @@ class TestHTTPResponses(AsyncHTTPTestCase):
                                             OAI_PROTOCOL_VERSION),
             oai_pmh_list_size_oai_dc=kw.get('oai_pmh_list_size_oai_dc',
                                             OAI_RESPONSE_LIST_SIZE),
-            oai_pmh_list_size_ead3=kw.get('oai_pmh_list_size_ead3',
-                                          OAI_RESPONSE_LIST_SIZE),
-            oai_pmh_list_size_ddi_c=kw.get('oai_pmh_list_size_ddi_c',
-                                           OAI_RESPONSE_LIST_SIZE),
             oai_pmh_list_size_oai_ddi25=kw.get('oai_pmh_list_size_oai_ddi25',
                                                OAI_RESPONSE_LIST_SIZE),
+            oai_pmh_list_size_oai_datacite=kw.get('oai_pmh_list_size_oai_datacite',
+                                                  OAI_RESPONSE_LIST_SIZE),
             oai_pmh_namespace_identifier=kw.get('oai_pmh_namespace_identifier',
                                                 OAI_REC_NAMESPACE_IDENTIFIER),
             oai_pmh_base_url=kw.get('oai_pmh_base_url',
@@ -192,6 +190,8 @@ class TestHTTPResponses(AsyncHTTPTestCase):
                                     direct=False, metadata_namespace='anothernamespace')
         for metadata_prefix in MD_PREFIXES:
             with self.subTest(metadata_prefix=metadata_prefix):
+                if metadata_prefix == 'oai_datacite':
+                    study.add_identifiers('some_doi', 'en', agency='DOI')
                 resp = self.oai_request(study, verb='GetRecord', metadata_prefix=metadata_prefix,
                                         identifier='study_id')
                 xmlel = self._resp_to_xmlel(resp)
@@ -223,6 +223,11 @@ class TestHTTPResponses(AsyncHTTPTestCase):
         study.set_deleted('2000-01-01T23:00:00Z')
         for mdprefix in MD_PREFIXES:
             with self.subTest(metadata_prefix=mdprefix):
+                if mdprefix == 'oai_datacite':
+                    study.add_identifiers('some_doi', 'en', agency='DOI')
+                study.add_study_number('someid')
+                study._metadata.attr_status.set_value(REC_STATUS_DELETED)
+                study.set_deleted('2000-01-01T23:00:00Z')
                 response_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
                                                                    metadata_prefix=mdprefix,
                                                                    identifier='someid'))
@@ -251,19 +256,47 @@ class TestHTTPResponses(AsyncHTTPTestCase):
         set_els = xml_el.findall('./oai:ListSets/oai:set', XMLNS)
         # Six set elements: One for each set type: 'spec: language, name: Language'
         # and one for each value: 'spec: language:en'
-        self.assertEqual(len(set_els), 6)
+        self.assertEqual(len(set_els), 7)
         exp_sets = {'language': 'Language',
                     'language:fi': '',
                     'language:en': '',
                     'source': 'Source archive',
                     'source:some.base.url': '',
-                    'source:FSD': ''}
+                    'source:FSD': '',
+                    'openaire_data': 'OpenAIRE'}
         for set_el in set_els:
             spec = ''.join(set_el.find('./oai:setSpec', XMLNS).itertext())
             name = ''.join(set_el.find('./oai:setName', XMLNS).itertext())
             self.assertIn(spec, exp_sets)
             exp_name = exp_sets.pop(spec)
             self.assertEqual(name, exp_name)
+
+    # LISTMETADATAFORMATS
+
+    def test_GET_listmetadataformats_returns_available_metadataformats(self):
+        expected = {
+            'oai_dc': (
+                'http://www.openarchives.org/OAI/2.0/oai_dc.xsd',
+                'http://www.openarchives.org/OAI/2.0/oai_dc/'),
+            'oai_ddi25': (
+                'http://www.ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd',
+                'ddi:codebook:2_5'),
+            'oai_datacite': (
+                'http://schema.datacite.org/meta/kernel-3/metadata.xsd',
+                'http://datacite.org/schema/kernel-3')}
+        self.assertEqual(list(MD_PREFIXES), list(expected.keys()), msg="Inconsistency in expected metadata and "
+                         "declared metadata prefixes. Test must be fixed.")
+        response = self.fetch(OAI_URL + '?verb=ListMetadataFormats')
+        xmlel = self._resp_to_xmlel(response)
+        for mdel in xmlel.findall('./oai:ListMetadataFormats/oai:metadataFormat', XMLNS):
+            mdprefix = ''.join(mdel.find('./oai:metadataPrefix', XMLNS).itertext())
+            self.assertIn(mdprefix, expected)
+            exp_schema, exp_ns = expected.pop(mdprefix)
+            self.assertEqual(''.join(mdel.find('./oai:schema', XMLNS).itertext()),
+                             exp_schema)
+            self.assertEqual(''.join(mdel.find('./oai:metadataNamespace', XMLNS).itertext()),
+                             exp_ns)
+        self.assertEqual(expected, {})
 
     # LISTRECORDS
 
@@ -291,12 +324,16 @@ class TestHTTPResponses(AsyncHTTPTestCase):
                                       identifier='some:identifier', datestamp='1999-01-01',
                                       direct=True, metadata_namespace='somenamespace')
         study_3._aggregator_identifier.set_value('third_identifier')
+        studies = [study_1, study_2, study_3]
         self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple(
-            {'studies': [study_1, study_2, study_3],
+            {'studies': studies,
              'variables': [],
              'questions': []}))
         for mdprefix in MD_PREFIXES:
             with self.subTest(metadata_prefix=mdprefix):
+                if mdprefix == 'oai_datacite':
+                    for study in studies:
+                        study.add_identifiers('some_doi', 'en', agency='DOI')
                 exp_headers = {'first_identifier': ('2000-01-01T23:24:25Z', True),
                                'second_identifier': ('2001-01-01T23:23:23Z', False),
                                'third_identifier': ('2002-01-01T23:24:25Z', True)}

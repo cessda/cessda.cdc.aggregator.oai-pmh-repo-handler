@@ -20,6 +20,7 @@ setup(name='cdcagg_oai',
       entry_points={
         'cdcagg.oai.metadataformats': [
             'AggOAIDDI25MetadataFormat = cdcagg_oai.metadataformats:AggOAIDDI25MetadataFormat',
+            'AggOAIDataciteMetadataFormat = cdcagg_oai.metadataformats:AggOAIDataciteMetadataFormat',
             'AggDCMetadataFormat = cdcagg_oai.metadataformats:AggDCMetadataFormat']},
       classifiers=(
           'Development Status :: 1 - Planning',
