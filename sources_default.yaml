@@ -1,0 +1,17 @@
+# This is a default source definition file used to construct OAI-Set
+# that are based on base url of the originating archive.
+# Use this file as an example to build custom source definitions.
+# If this file is changed, it leads to all default source definitions
+# being changed also.
+#
+# NOTE that both the url and source values must be unique within
+# this YAML document. Otherwise the program will not work correctly.
+# The uniqueness is not enforced by the program. In other words, there
+# is no validation performed against this file.
+---
+-
+  url: 'http://services.fsd.tuni.fi/v0/oai'
+  source: 'FSD'
+-
+  url: 'https://www.da-ra.de/oaip'
+  source: 'GESIS'

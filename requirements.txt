@@ -6,6 +6,7 @@ six==1.16.0
 
 # Direct
 Genshi==0.7.5
+PyYAML==5.4.1
 
 # CDCAGG shared library
 git+https://${BBCREDS}@bitbucket.org/cessda/cessda.cdc.aggregator.shared-library@master#egg=cdcagg_common

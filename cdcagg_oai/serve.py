@@ -44,7 +44,7 @@ def main():
     if settings.print_configuration:
         print('Print active configuration and exit\n')
         conf.print_conf()
-        return 0
+        return
     set_ctx_populator(server.serverlog_ctx_populator)
     setup_app_logging(conf.get_package(), loglevel=settings.loglevel, port=settings.port)
     try:
@@ -62,4 +62,3 @@ def main():
         raise
     finally:
         _logger.info('Exiting')
-    return 0

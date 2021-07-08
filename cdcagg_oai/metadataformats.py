@@ -1,70 +1,140 @@
+# Stdlib
 import os.path
+# PyPI
+from yaml import safe_load
+# Kuha Common
 from kuha_common.query import QueryController
+# Kuha OAI-PMH
 from kuha_oai_pmh_repo_handler.metadataformats import (
-    MetadataFormatBase,
+    MDFormat,
     DDICMetadataFormat,
-    OAIDataciteMetadataFormat,
-    valid_openaire_id_types
+    OAIDataciteMetadataFormat
 )
+from kuha_oai_pmh_repo_handler.metadataformats.const import valid_openaire_id_types
 from kuha_oai_pmh_repo_handler.genshi_loader import GenPlate
 from kuha_oai_pmh_repo_handler.constants import TEMPLATE_FOLDER
 from kuha_oai_pmh_repo_handler.oai.constants import OAI_RESPONSE_LIST_SIZE
+# CDCAGG Common
 from cdcagg_common.records import Study
 
-# Prototyping set with aggregate source.
-_MAP_URL_TO_SOURCE = {'http://services.fsd.tuni.fi/v0/oai': 'FSD',
-                      'https://www.da-ra.de/oaip': 'GESIS'}
+
+class SourceAggMDSet(MDFormat.MDSet):
+
+    spec = 'source'
+    _default_filepath = os.path.abspath(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            '..', 'sources_default.yaml'))
+    # Contains source definitions. Populated once on configure and kept in-memory
+    # for the rest of the application run time.
+    _source_defs = None
+
+    @classmethod
+    def add_cli_args(cls, parser):
+        parser.add('--oai-set-sources-path',
+                   help='Full path to sources definitions',
+                   env_var='OPRH_OS_SOURCES_PATH',
+                   default=cls._default_filepath,
+                   type=str)
+
+    @classmethod
+    def configure(cls, settings):
+        path = settings.oai_set_sources_path
+        if not os.path.isfile(path):
+            raise ValueError("'%s' is not a valid file." % (path,))
+        with open(path, 'r') as file_obj:
+            cls._source_defs = safe_load(file_obj) or []
+
+    @classmethod
+    async def _get_source_defs(cls):
+        return cls._source_defs
+
+    async def _get_source_by_url(self, url):
+        source_defs = await self._get_source_defs()
+        for source_def in source_defs:
+            if source_def['url'] == url:
+                return source_def['source']
+
+    async def _get_url_by_source(self, source):
+        source_defs = await self._get_source_defs()
+        for source_def in source_defs:
+            if source_def['source'] == source:
+                return source_def['url']
+
+    async def fields(self):
+        """Return list of fields to include when querying for record headers.
+
+        This is used when gathering all docstore fields that are needed to
+        construct oai headers.
+
+        :returns: list of fields
+        :rtype: list
+        """
+        return [self._mdformat.study_class._provenance]
+
+    async def query(self, on_set_cb):
+        """Query and add distinct values for setspecs
+
+        This is used when constructing ListSets OAI response.
+
+        :param on_set_cb: Async callback with signature (spec, name=None), where spec is the setSpec value
+                          'language:en' or 'openaire_data'
+        :returns: None
+        """
+        result = await QueryController().query_distinct(
+            self._mdformat.study_class,
+            headers=self._mdformat.corr_id_header,
+            fieldname=self._mdformat.study_class._provenance.attr_base_url,
+            _filter={self._mdformat.study_class._provenance.attr_direct: True})
+        await on_set_cb(self.spec, name='Source archive')
+        for baseurl in result[self._mdformat.study_class._provenance.attr_base_url.path]:
+            source = await self._get_source_by_url(baseurl) or baseurl
+            await on_set_cb('%s:%s' % (self.spec, source))
+
+    async def get(self, study):
+        """Get values from record used in setspec: '<key>:<value>'.
+        A None value will leave out the <value> part: '<key>'
+
+        This is used when constructing setspecs for a specific record.
+
+        :param study: study record to get set values from
+        :returns: List of values
+        """
+        sources = []
+        for prov in study._provenance:
+            if prov.attr_direct.get_value() is not True or prov.attr_base_url.get_value() is None:
+                continue
+            base_url = prov.attr_base_url.get_value()
+            source = await self._get_source_by_url(base_url) or base_url
+            if source not in sources:
+                sources.append(source)
+        return sources
+
+    async def filter(self, value):
+        """Return a query filter that includes all studies matching 'value'.
+
+        This is used when constructing docstore query that will include all records
+        in this OAI-set group. In other words, in selective harvesting.
+
+        :param dict value: filter value
+        :returns: query filter
+        :rtype: dict
+        """
+        value = await self._get_url_by_source(value) or value
+        return {self._mdformat.study_class._provenance:
+                {QueryController.fk_constants.elem_match:
+                 {self._mdformat.study_class._provenance.attr_base_url: value,
+                  self._mdformat.study_class._provenance.attr_direct: True}}}
 
 
-# OAI-set source
+class AggMetadataFormatBase(MDFormat):
 
-
-async def _query_source_for_set(md, spec, correlation_id_header, on_set_cb):
-    # Prototyping set with aggregate source.
-    result = await QueryController().query_distinct(
-        md.study_class, headers=md._corr_id_header,
-        fieldname=md.study_class._provenance.attr_base_url,
-        _filter={md.study_class._provenance.attr_direct: True})
-    await on_set_cb(spec, name='Source archive')
-    for baseurl in result[md.study_class._provenance.attr_base_url.path]:
-        await on_set_cb('%s:%s' % (spec, _MAP_URL_TO_SOURCE.get(baseurl, baseurl)))
-
-
-async def _get_source_from_record(md, study):
-    # Prototyping set with aggregate source.
-    sources = []
-    for prov in study._provenance:
-        if prov.attr_direct.get_value() is not True or prov.attr_base_url.get_value() is None:
-            continue
-        source = _MAP_URL_TO_SOURCE.get(prov.attr_base_url.get_value(),
-                                        prov.attr_base_url.get_value())
-        if source not in sources:
-            sources.append(source)
-    return sources
-
-
-async def _filter_for_source(md, value):
-    value = {v: k for k, v in _MAP_URL_TO_SOURCE.items()}[value]
-    # TODO direct attibute must be true
-    return {md.study_class._provenance.attr_base_url: value}
-
-
-async def _fields_for_source(md):
-    return [md.study_class._provenance]
-
-
-class AggMetadataFormatBase(MetadataFormatBase):
-
-    default_template_folders = MetadataFormatBase.default_template_folders + [
+    default_template_folders = MDFormat.default_template_folders + [
         os.path.join(os.path.dirname(os.path.realpath(__file__)), TEMPLATE_FOLDER)]
     study_class = Study
-    sets = [MetadataFormatBase.get_set('language'),
-            MetadataFormatBase.get_set('openaire_data'),
-            MetadataFormatBase.MDSet(spec='source',
-                                     fields=_fields_for_source,
-                                     get=_get_source_from_record,
-                                     query=_query_source_for_set,
-                                     filter_=_filter_for_source)]
+    sets = [MDFormat.get_set('language'),
+            MDFormat.get_set('openaire_data'),
+            SourceAggMDSet]
 
     async def _header_fields(self):
         return await super()._header_fields() + [self.study_class._aggregator_identifier,

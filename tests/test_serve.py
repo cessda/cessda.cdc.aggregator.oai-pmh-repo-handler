@@ -1,3 +1,5 @@
+import os.path
+import datetime
 from argparse import Namespace
 from xml.etree import ElementTree
 from inspect import iscoroutinefunction
@@ -6,6 +8,10 @@ from tornado.testing import AsyncHTTPTestCase
 from kuha_common.testing import mock_coro
 from kuha_common.testing.testcases import KuhaUnitTestCase
 from kuha_common.document_store.constants import REC_STATUS_DELETED
+from kuha_common.document_store import (
+    query,
+    client
+)
 from kuha_oai_pmh_repo_handler.oai.constants import (
     OAI_REC_NAMESPACE_IDENTIFIER,
     OAI_RESPONSE_LIST_SIZE,
@@ -56,7 +62,18 @@ def _query_multiple(result):
     return _inner_query_multiple
 
 
-class TestHTTPResponses(AsyncHTTPTestCase):
+class FakeDatetime(datetime.datetime):
+    """Class datetime.datetime methods cannot be mocked
+    without touching the container class. We just need the date
+    to stay consistent while testing.
+    """
+
+    @classmethod
+    def utcnow(cls):
+        return cls(2019, 12, 12, 7, 14, 37, 685563)
+
+
+class _Base(AsyncHTTPTestCase):
 
     _settings = None
 
@@ -65,6 +82,14 @@ class TestHTTPResponses(AsyncHTTPTestCase):
         if cls._settings is not None:
             raise ValueError("_settings is already defined.")
         cls._settings = Namespace(
+            document_store_url=kw.get('document_store_url',
+                                      query.DEFAULT_DOCSTORE_URL),
+            document_store_client_max_clients=kw.get('document_store_max_clients',
+                                                     client.DS_CLIENT_MAX_CLIENTS),
+            document_store_client_connect_timeout=kw.get('document_store_client_connect_timeout',
+                                                         client.DS_CLIENT_CONNECT_TIMEOUT),
+            document_store_client_request_timeout=kw.get('document_store_client_request_timeout',
+                                                         client.DS_CLIENT_REQUEST_TIMEOUT),
             oai_pmh_respond_with_requested_url=kw.get('oai_pmh_respond_with_requested_url',
                                                       OAI_RESPOND_WITH_REQ_URL),
             oai_pmh_repo_name=kw.get('oai_pmh_repo_name',
@@ -77,6 +102,11 @@ class TestHTTPResponses(AsyncHTTPTestCase):
                                                OAI_RESPONSE_LIST_SIZE),
             oai_pmh_list_size_oai_datacite=kw.get('oai_pmh_list_size_oai_datacite',
                                                   OAI_RESPONSE_LIST_SIZE),
+            oai_set_sources_path=kw.get('oai_set_sources_path',
+                                        os.path.abspath(
+                                            os.path.join(
+                                                os.path.dirname(os.path.realpath(__file__)),
+                                                'data', 'sources_definitions.yaml'))),
             oai_pmh_namespace_identifier=kw.get('oai_pmh_namespace_identifier',
                                                 OAI_REC_NAMESPACE_IDENTIFIER),
             oai_pmh_base_url=kw.get('oai_pmh_base_url',
@@ -94,22 +124,16 @@ class TestHTTPResponses(AsyncHTTPTestCase):
 
     def setUp(self):
         self._patchers = []
-        # Mock out query oontroller methods in order to control returned records
-        self._mock_query_single = self._init_patcher(mock.patch(
-            'kuha_common.query.QueryController.query_single'))
-        self._mock_query_multiple = self._init_patcher(mock.patch(
-            'kuha_common.query.QueryController.query_multiple'))
-        self._mock_query_distinct = self._init_patcher(mock.patch(
-            'kuha_common.query.QueryController.query_distinct'))
-        self._mock_query_count = self._init_patcher(mock.patch(
-            'kuha_common.query.QueryController.query_count'))
         super().setUp()
 
     def tearDown(self):
         for patcher in self._patchers:
             patcher.stop()
         self._clear_settings()
-        super().tearDown()
+        defaults = self.settings()
+        client.configure(defaults)
+        query.configure(defaults)
+        self._clear_settings()
 
     def _init_patcher(self, patcher):
         mocked = patcher.start()
@@ -124,6 +148,21 @@ class TestHTTPResponses(AsyncHTTPTestCase):
             mdf.configure(self._settings)
         ctrl = serve.controller.from_settings(self._settings, mdformats)
         return serve.http_api.get_app(API_VERSION, controller=ctrl)
+
+
+class TestHTTPResponses(_Base):
+
+    def setUp(self):
+        super().setUp()
+        # Mock out query oontroller methods in order to control returned records
+        self._mock_query_single = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_single'))
+        self._mock_query_multiple = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_multiple'))
+        self._mock_query_distinct = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_distinct'))
+        self._mock_query_count = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_count'))
 
     def oai_request(self, return_record=None, return_relatives=None, **req_args):
         return_relatives = return_relatives or {}
@@ -217,17 +256,14 @@ class TestHTTPResponses(AsyncHTTPTestCase):
         parts.
           - http://www.openarchives.org/OAI/2.0/openarchivesprotocol.htm
         """
-        study = Study()
-        study.add_study_number('someid')
-        study._metadata.attr_status.set_value(REC_STATUS_DELETED)
-        study.set_deleted('2000-01-01T23:00:00Z')
         for mdprefix in MD_PREFIXES:
             with self.subTest(metadata_prefix=mdprefix):
-                if mdprefix == 'oai_datacite':
-                    study.add_identifiers('some_doi', 'en', agency='DOI')
+                study = Study()
                 study.add_study_number('someid')
                 study._metadata.attr_status.set_value(REC_STATUS_DELETED)
                 study.set_deleted('2000-01-01T23:00:00Z')
+                if mdprefix == 'oai_datacite':
+                    study.add_identifiers('some_doi', 'en', agency='DOI')
                 response_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
                                                                    metadata_prefix=mdprefix,
                                                                    identifier='someid'))
@@ -241,6 +277,27 @@ class TestHTTPResponses(AsyncHTTPTestCase):
                 self.assertIsNone(response_el.find('./oai:GetRecord/oai:record/oai:metadata', XMLNS))
                 # ... or about parts
                 self.assertIsNone(response_el.find('./oai:GetRecord/oai:record/oai:about', XMLNS))
+
+    def test_GET_getrecord_returns_correct_sets(self):
+        for mdprefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=mdprefix):
+                study = Study()
+                study.add_study_number('someid')
+                study._provenance.add_value('someharvestdate', altered=True, base_url='http://services.fsd.tuni.fi/v0/oai',
+                                            identifier='someidentifier', datestamp='somedatestamp',
+                                            direct=True, metadata_namespace='somenamespace')
+                exp_sets = ['source:FSD']
+                if mdprefix == 'oai_datacite':
+                    study.add_identifiers('some_doi', 'en', agency='DOI')
+                    exp_sets.append('openaire_data')
+                response_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                                   metadata_prefix=mdprefix,
+                                                                   identifier='someid'))
+                header_el = response_el.find('./oai:GetRecord/oai:record/oai:header', XMLNS)
+                set_els = header_el.findall('./oai:setSpec', XMLNS)
+                self.assertEqual(len(set_els), len(exp_sets))
+                for set_el in set_els:
+                    self.assertIn(''.join(set_el.itertext()), exp_sets)
 
     # LISTSETS
 
@@ -352,3 +409,52 @@ class TestHTTPResponses(AsyncHTTPTestCase):
                         self.assertEqual(rec_el.find('./oai:header', XMLNS).get('status'), 'deleted')
                         self.assertIsNone(rec_el.find('./oai:metadata', XMLNS))
                 self.assertEqual(exp_headers, {})
+
+
+class TestQueries(_Base):
+
+    def setUp(self):
+        super().setUp()
+
+    @mock.patch('kuha_oai_pmh_repo_handler.oai.protocol.datetime.datetime',
+                FakeDatetime, spec=datetime.datetime)
+    def test_GET_listrecords_query_filter_for_source_set_and_value(self):
+        self.maxDiff = None
+        self._init_patcher(mock.patch('kuha_common.query.QueryController.query_count'))
+        mock_fetch = self._init_patcher(mock.patch(
+            'kuha_common.document_store.client.JSONStreamClient.fetch'))
+        exp_filter = {'_metadata.updated': {'$lt': {'$isodate': '2019-12-12T07:14:38Z'}},
+                      "_provenance": {"$elemMatch": {"base_url": "http://services.fsd.tuni.fi/v0/oai",
+                                                     "direct": True}}}
+        for mdprefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=mdprefix):
+                if mdprefix == 'oai_datacite':
+                    exp_filter.update({'identifiers.agency': {'$in': [
+                        'DOI', 'ARK', 'Handle', 'PURL', 'URN', 'URL']}})
+                self.fetch(OAI_URL + '?verb=ListRecords&set=source:FSD&metadataPrefix={md}'.format(md=mdprefix))
+                calls = mock_fetch.call_args_list
+                self.assertEqual(len(calls), 1)
+                cargs, _ = calls.pop()
+                self.assertEqual(cargs[2]['_filter'], exp_filter)
+            mock_fetch.reset_mock()
+
+    @mock.patch('kuha_oai_pmh_repo_handler.oai.protocol.datetime.datetime',
+                FakeDatetime, spec=datetime.datetime)
+    def test_GET_listrecords_executes_correct_query_for_source_set(self):
+        self.maxDiff = None
+        self._init_patcher(mock.patch('kuha_common.query.QueryController.query_count'))
+        mock_fetch = self._init_patcher(mock.patch(
+            'kuha_common.document_store.client.JSONStreamClient.fetch'))
+        exp_filter = {'_metadata.updated': {'$lt': {'$isodate': '2019-12-12T07:14:38Z'}},
+                      '_provenance': {'$elemMatch': {'base_url': {'$exists': True}, 'direct': True}}}
+        for mdprefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=mdprefix):
+                if mdprefix == 'oai_datacite':
+                    exp_filter.update({'identifiers.agency': {'$in': [
+                        'DOI', 'ARK', 'Handle', 'PURL', 'URN', 'URL']}})
+                self.fetch(OAI_URL + '?verb=ListRecords&set=source&metadataPrefix={md}'.format(md=mdprefix))
+                calls = mock_fetch.call_args_list
+                self.assertEqual(len(calls), 1)
+                cargs, _ = calls.pop()
+                self.assertEqual(cargs[2]['_filter'], exp_filter)
+            mock_fetch.reset_mock()

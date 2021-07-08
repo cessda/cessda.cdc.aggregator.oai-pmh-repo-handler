@@ -1,0 +1,7 @@
+---
+-
+  url: 'http://services.fsd.tuni.fi/v0/oai'
+  source: 'FSD'
+-
+  url: 'https://www.da-ra.de/oaip'
+  source: 'GESIS'
