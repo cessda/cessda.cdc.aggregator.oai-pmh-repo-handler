@@ -1,10 +1,32 @@
 from tempfile import NamedTemporaryFile
 from unittest import mock
 from argparse import Namespace
+from yaml.parser import ParserError
 from kuha_common.testing.testcases import KuhaUnitTestCase
 from kuha_common.testing import mock_coro
 from cdcagg_common.records import Study
 from cdcagg_oai import metadataformats
+
+
+CONFIGURABLE_SETS = """
+spec: 'thematic'
+name: 'Thematic'
+description: 'Thematic grouping of records'
+nodes:
+  - spec: 'social_sciences'
+    name: 'Social sciences'
+    description: 'Studies in social sciences'
+    identifiers:
+    - id_1
+    - id_2
+  - spec: 'humanities'
+    name: 'Humanities'
+    description: 'Studies in humanities'
+    identifiers:
+    - id_2
+    - id_3
+    - id_4
+"""
 
 
 SOURCES = """
@@ -15,6 +37,60 @@ SOURCES = """
   url: 'http://another.url'
   source: 'another source'
 """
+
+
+INVALID_YAML = """
+outer: {inner: value)
+"""
+
+
+class TestConfigurableMDSet(KuhaUnitTestCase):
+
+    def tearDown(self):
+        metadataformats.ConfigurableAggMDSet.spec = None
+        metadataformats.ConfigurableAggMDSet._loaded_filepath = None
+        super().tearDown()
+
+    def test_init_raises_NotImplementedError_if_no_spec(self):
+        with self.assertRaises(NotImplementedError):
+            metadataformats.ConfigurableAggMDSet(mock.Mock())
+
+    def test_add_cli_args_adds_args(self):
+        mock_parser = mock.Mock()
+        metadataformats.ConfigurableAggMDSet.add_cli_args(mock_parser)
+        mock_parser.add.assert_called_once_with(
+            '--oai-set-configurable-path',
+            help='Path to look for configurable OAI set definitions. Leave unset to discard '
+            'configurable set.', env_var='OPRH_OS_CONFIGURABLE_PATH', type=str)
+
+    def test_configure_raises_FileNotFoundError_for_invalid_file(self):
+        settings = Namespace(oai_set_configurable_path='/some/invalid/path')
+        with self.assertRaises(FileNotFoundError):
+            metadataformats.ConfigurableAggMDSet.configure(settings)
+
+    def test_configure_raises_ParseError_for_invalid_yaml_syntax(self):
+        with NamedTemporaryFile(mode='w', delete=False) as somefile:
+            somefile.write(INVALID_YAML)
+            somefile.close()
+            settings = Namespace(oai_set_configurable_path=somefile.name)
+            with self.assertRaises(ParserError):
+                metadataformats.ConfigurableAggMDSet.configure(settings)
+
+    def test_configure_returns_False_if_file_not_given(self):
+        # oai_set_configurable_path attribute in Namespace object is None if it is
+        # declared to parser but not given via configuration options.
+        rval = metadataformats.ConfigurableAggMDSet.configure(Namespace(oai_set_configurable_path=None))
+        self.assertFalse(rval)
+
+    def test_configure_accepts_a_valid_file(self):
+        with NamedTemporaryFile(mode='w', delete=False) as somefile:
+            somefile.write(CONFIGURABLE_SETS)
+            somefile.close()
+            settings = Namespace(oai_set_configurable_path=somefile.name)
+            # Should not raise here
+            rval = metadataformats.ConfigurableAggMDSet.configure(settings)
+        self.assertEqual(metadataformats.ConfigurableAggMDSet._loaded_filepath, somefile.name)
+        self.assertIsNone(rval)
 
 
 class TestSourceAggMDSet(KuhaUnitTestCase):
@@ -31,10 +107,18 @@ class TestSourceAggMDSet(KuhaUnitTestCase):
             env_var='OPRH_OS_SOURCES_PATH', default=metadataformats.SourceAggMDSet._default_filepath,
             type=str)
 
-    def test_configure_raises_ValueError_for_invalid_file(self):
+    def test_configure_raises_FileNotFoundError_for_invalid_file(self):
         settings = Namespace(oai_set_sources_path='some/invalid/path')
-        with self.assertRaises(ValueError):
+        with self.assertRaises(FileNotFoundError):
             metadataformats.SourceAggMDSet.configure(settings)
+
+    def test_configure_raises_ParseError_for_invalid_yaml_syntax(self):
+        with NamedTemporaryFile(mode='w', delete=False) as somefile:
+            somefile.write(INVALID_YAML)
+            somefile.close()
+            settings = Namespace(oai_set_sources_path=somefile.name)
+            with self.assertRaises(ParserError):
+                metadataformats.SourceAggMDSet.configure(settings)
 
     def test_configure_accepts_a_valid_file(self):
         with NamedTemporaryFile() as somefile:

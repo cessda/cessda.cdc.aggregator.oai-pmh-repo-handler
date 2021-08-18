@@ -1,3 +1,4 @@
+"""Define metadataformats and sets of the OAI-PMH Repo Handler."""
 # Stdlib
 import os.path
 # PyPI
@@ -18,13 +19,174 @@ from kuha_oai_pmh_repo_handler.oai.constants import OAI_RESPONSE_LIST_SIZE
 from cdcagg_common.records import Study
 
 
+def _path_to(filepath):
+    """Get absolute path to 'filepath'.
+
+    The path will start from the root of this package.
+
+    :param str filepath: ending the returned path.
+    :returns: absolute path
+    """
+    return os.path.abspath(
+        os.path.join(
+            os.path.dirname(
+                os.path.realpath(__file__)), '..', filepath))
+
+
+class ConfigurableAggMDSet(MDFormat.MDSet):
+    """Configurable arbitrary OAI set
+
+    Groups records to arbitrary sets.
+
+    The grouping relies on a mapping file that maps OAI setspecs to
+    record's aggregator_identifiers. The mapping file is read everytime this class is used
+    to query(), get() or filter() records.
+
+    The configuration file is expected to be valid YAML. A single spec-key must be found
+    from top-level. The spec value is used as a top-level OAI setspec value and identifies
+    this MDSet. Other top-level keys must be unique and contain list of identifiers that
+    belong to that particular OAI set.
+
+    Configuration file syntax example::
+
+      spec: 'thematic'
+      name: 'Thematic'
+      description: 'Thematic grouping of records'
+      nodes:
+        - spec: 'social_sciences'
+          name: 'Social sciences'
+          description: 'Studies in social sciences'
+          identifiers:
+          - id_1
+          - id_2
+        - spec: 'humanities'
+          name: 'Humanities'
+          description: 'Studies in humanities'
+          identifiers:
+          - id_2
+          - id_3
+          - id_4
+
+    The example is intepreted in following way:
+      * 'thematic' is the top-level setspec node.
+      * The top-level node contains two child nodes: 'social_sciences' and 'humanities'
+      * The set 'thematic:social_sciences' contains two records identied by 'id_1' and 'id_2'.
+      * The set 'thematic:humanities' contains three records identified by 'id_2', 'id_3' and 'id_4'.
+      * The identifier 'id_2' belongs to two sets.
+
+    Features & limitations::
+
+      * Supports hierachical set of records with a single top-level node. Example setspec: top_level_node
+      * Only direct child nodes are supported after the top-level node. Example setspec: top_level_node:child_node
+      * The configuration file syntax is checked on configure(), but is not validated in any way. The file may be valid
+        YAML, but not interpreted correctly.
+      * The top-level spec node is used to identify this particular MDSet.
+        For example if the configuration file declares spec: 'first' a request with
+        OAI setspec value first:second implies that the correct MDSet class to consult is this one.
+    """
+    _loaded_filepath = None
+
+    @classmethod
+    def add_cli_args(cls, parser):
+        parser.add('--oai-set-configurable-path',
+                   help='Path to look for configurable OAI set definitions. '
+                   'Leave unset to discard configurable set.',
+                   env_var='OPRH_OS_CONFIGURABLE_PATH',
+                   type=str)
+
+    @classmethod
+    def configure(cls, settings):
+        """Load configuration"""
+        path = settings.oai_set_configurable_path
+        if path is None:
+            # Don't load this set.
+            return False
+        with open(path, 'r') as file_obj:
+            # Load to make sure its correct yaml syntax.
+            # This class will load the YAML to memory on-demand.
+            cnf = safe_load(file_obj)
+        cls.spec = cnf['spec']
+        cls._loaded_filepath = path
+
+    @classmethod
+    async def _get_config(cls):
+        with open(cls._loaded_filepath, 'r') as file_obj:
+            return safe_load(file_obj)
+
+    async def fields(self):
+        """Return list of fields to include when querying for record headers.
+
+        This is used when gathering all docstore fields that are needed to
+        construct oai headers.
+
+        :returns: list of fields
+        :rtype: list
+        """
+        return [self._mdformat.study_class._aggregator_identifier]
+
+    async def query(self, on_set_cb):
+        """Query and add distinct values for setspecs
+
+        This is used when constructing ListSets OAI response.
+
+        :param on_set_cb: Async callback with signature (spec, name=None, description=None)
+        :returns: None
+        """
+        cnf = await self._get_config()
+        await on_set_cb(self.spec, name=cnf.get('name'), description=cnf.get('description'))
+        for node in cnf.get('nodes', []):
+            await on_set_cb(':'.join((self.spec, node['spec'])),
+                            name=node.get('name'),
+                            description=node.get('description'))
+
+    async def get(self, study):
+        """Get values from record used in setspec: ':<value>'.
+        A None value will leave out the <value> part: '<key>'
+
+        This is used when constructing setspecs for a specific record.
+
+        :param study: study record to get set values from
+        :returns: List of values
+        """
+        identifier = study._aggregator_identifier.get_value()
+        cnf = await self._get_config()
+        values = []
+        for node in cnf.get('nodes', []):
+            if identifier in node.get('identifiers', []):
+                values.append(node['spec'])
+        return values
+
+    async def filter(self, value):
+        """Return a query filter that includes all studies matching 'value'.
+
+        This is used when constructing docstore query that will include all records
+        in this OAI-set group. In other words, in selective harvesting.
+
+        :param str or None value: Requested setspec after colon.
+        :returns: query filter
+        :rtype: dict
+        """
+        cnf = await self._get_config()
+        identifiers = []
+        for node in cnf.get('nodes', []):
+            if value is None or value == node.get('spec'):
+                identifiers.extend(node.get('identifiers', []))
+                if value is not None:
+                    break
+        return {self._mdformat.study_class._aggregator_identifier:
+                {QueryController.fk_constants.in_: list(set(identifiers))}}
+
+
 class SourceAggMDSet(MDFormat.MDSet):
+    """OAI set grouping records by their originating source archive
+
+    The grouping relies on a mapping file that maps a record source url (OAI base url)
+    to a source value. This file is read once on configure() and kept in-memory for
+    the rest of the application run time.
+    """
 
     spec = 'source'
-    _default_filepath = os.path.abspath(
-        os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            '..', 'sources_default.yaml'))
+    _default_filepath = _path_to('sources_default.yaml')
     # Contains source definitions. Populated once on configure and kept in-memory
     # for the rest of the application run time.
     _source_defs = None
@@ -39,10 +201,7 @@ class SourceAggMDSet(MDFormat.MDSet):
 
     @classmethod
     def configure(cls, settings):
-        path = settings.oai_set_sources_path
-        if not os.path.isfile(path):
-            raise ValueError("'%s' is not a valid file." % (path,))
-        with open(path, 'r') as file_obj:
+        with open(settings.oai_set_sources_path, 'r') as file_obj:
             cls._source_defs = safe_load(file_obj) or []
 
     @classmethod
@@ -77,8 +236,7 @@ class SourceAggMDSet(MDFormat.MDSet):
 
         This is used when constructing ListSets OAI response.
 
-        :param on_set_cb: Async callback with signature (spec, name=None), where spec is the setSpec value
-                          'language:en' or 'openaire_data'
+        :param on_set_cb: Async callback with signature (spec, name=None, description=None)
         :returns: None
         """
         result = await QueryController().query_distinct(
@@ -100,6 +258,7 @@ class SourceAggMDSet(MDFormat.MDSet):
         :param study: study record to get set values from
         :returns: List of values
         """
+        # TODO: base_url must be url-encoded if used plainly in setspec
         sources = []
         for prov in study._provenance:
             if prov.attr_direct.get_value() is not True or prov.attr_base_url.get_value() is None:
@@ -116,11 +275,11 @@ class SourceAggMDSet(MDFormat.MDSet):
         This is used when constructing docstore query that will include all records
         in this OAI-set group. In other words, in selective harvesting.
 
-        :param dict value: filter value
+        :param str or None value: Requested setspec value after colon.
         :returns: query filter
         :rtype: dict
         """
-        value = await self._get_url_by_source(value) or value
+        value = await self._get_url_by_source(value) or value or self._exists_filter
         return {self._mdformat.study_class._provenance:
                 {QueryController.fk_constants.elem_match:
                  {self._mdformat.study_class._provenance.attr_base_url: value,
@@ -134,7 +293,8 @@ class AggMetadataFormatBase(MDFormat):
     study_class = Study
     sets = [MDFormat.get_set('language'),
             MDFormat.get_set('openaire_data'),
-            SourceAggMDSet]
+            SourceAggMDSet,
+            ConfigurableAggMDSet]
 
     async def _header_fields(self):
         return await super()._header_fields() + [self.study_class._aggregator_identifier,

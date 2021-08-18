@@ -33,6 +33,8 @@ def configure(mdformats):
     for mdformat in mdformats:
         mdformat.add_cli_args(conf)
     settings = conf.get_conf()
+    set_ctx_populator(server.serverlog_ctx_populator)
+    setup_app_logging(conf.get_package(), loglevel=settings.loglevel, port=settings.port)
     for mdformat in mdformats:
         mdformat.configure(settings)
     return settings
@@ -45,8 +47,6 @@ def main():
         print('Print active configuration and exit\n')
         conf.print_conf()
         return
-    set_ctx_populator(server.serverlog_ctx_populator)
-    setup_app_logging(conf.get_package(), loglevel=settings.loglevel, port=settings.port)
     try:
         ctrl = controller.from_settings(settings, mdformats)
         app = http_api.get_app(settings.api_version, controller=ctrl)

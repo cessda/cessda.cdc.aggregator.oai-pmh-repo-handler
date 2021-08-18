@@ -1,0 +1,20 @@
+# This is an example definition file for configurable OAI-Set.
+# Use this file as an example to build a custom set definition.
+---
+spec: 'thematic'
+name: 'Thematic'
+description: 'Thematic grouping of records'
+nodes:
+  - spec: 'social_sciences'
+    name: 'Social sciences'
+    description: 'Studies in social sciences'
+    identifiers:
+    - id_1
+    - id_2
+  - spec: 'humanities'
+    name: 'Humanities'
+    description: 'Studies in humanities'
+    identifiers:
+    - id_2
+    - id_3
+    - id_4

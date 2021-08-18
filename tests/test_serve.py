@@ -20,7 +20,6 @@ from kuha_oai_pmh_repo_handler.oai.constants import (
     OAI_REPO_NAME
 )
 from cdcagg_common.records import Study
-
 from cdcagg_oai import (
     serve,
     metadataformats
@@ -38,8 +37,11 @@ class TestConfigure(KuhaUnitTestCase):
     @mock.patch.object(serve, 'conf')
     @mock.patch.object(serve.server, 'add_cli_args')
     @mock.patch.object(serve.controller, 'add_cli_args')
-    def test_calls_conf_load(self, mock_server_add_cli_args,
-                             mock_controller_add_cli_args, mock_conf):
+    @mock.patch.object(serve, 'setup_app_logging')
+    def test_calls_conf_load(self, mock_setup_app_logging,
+                             mock_server_add_cli_args,
+                             mock_controller_add_cli_args,
+                             mock_conf):
         serve.configure([])
         mock_conf.load.assert_called_once_with(
             prog='cdcagg_oai', package='cdcagg_oai', env_var_prefix='CDCAGG_')
@@ -107,6 +109,11 @@ class _Base(AsyncHTTPTestCase):
                                             os.path.join(
                                                 os.path.dirname(os.path.realpath(__file__)),
                                                 'data', 'sources_definitions.yaml'))),
+            oai_set_configurable_path=kw.get('oai_set_configurable_path',
+                                             os.path.abspath(
+                                                 os.path.join(
+                                                     os.path.dirname(os.path.realpath(__file__)),
+                                                     'data', 'configurable_sets.yaml'))),
             oai_pmh_namespace_identifier=kw.get('oai_pmh_namespace_identifier',
                                                 OAI_REC_NAMESPACE_IDENTIFIER),
             oai_pmh_base_url=kw.get('oai_pmh_base_url',
@@ -278,12 +285,15 @@ class TestHTTPResponses(_Base):
                 # ... or about parts
                 self.assertIsNone(response_el.find('./oai:GetRecord/oai:record/oai:about', XMLNS))
 
-    def test_GET_getrecord_returns_correct_sets(self):
+    def test_GET_getrecord_returns_correct_source_sets(self):
+        """Make sure record headers contains correct OAI sets for SourceAggMDSet.
+        Consults the HTTP response for XML serialized OAI-sets of a single record."""
         for mdprefix in MD_PREFIXES:
             with self.subTest(metadata_prefix=mdprefix):
                 study = Study()
                 study.add_study_number('someid')
-                study._provenance.add_value('someharvestdate', altered=True, base_url='http://services.fsd.tuni.fi/v0/oai',
+                study._provenance.add_value('someharvestdate', altered=True,
+                                            base_url='http://services.fsd.tuni.fi/v0/oai',
                                             identifier='someidentifier', datestamp='somedatestamp',
                                             direct=True, metadata_namespace='somenamespace')
                 exp_sets = ['source:FSD']
@@ -294,6 +304,32 @@ class TestHTTPResponses(_Base):
                                                                    metadata_prefix=mdprefix,
                                                                    identifier='someid'))
                 header_el = response_el.find('./oai:GetRecord/oai:record/oai:header', XMLNS)
+                set_els = header_el.findall('./oai:setSpec', XMLNS)
+                self.assertEqual(len(set_els), len(exp_sets))
+                for set_el in set_els:
+                    self.assertIn(''.join(set_el.itertext()), exp_sets)
+
+    def test_GET_getrecord_returns_correct_configurable_sets(self):
+        """Make sure record headers contains correct OAI sets for ConfigurableAggMDSet.
+        Consults the HTTP response for XML serialized OAI-sets of a single record."""
+        for mdprefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=mdprefix):
+                study = Study()
+                study.add_study_number('some_number')
+                study._provenance.add_value('someharvestdate', altered=True,
+                                            base_url='http://somebaseurl',
+                                            identifier='someidentifier', datestamp='somedatestamp',
+                                            direct=True, metadata_namespace='somenamespace')
+                # 'id_2' is defined in the set configuration file.
+                study._aggregator_identifier.add_value('id_1')
+                exp_sets = ['thematic:social_sciences']
+                if mdprefix == 'oai_datacite':
+                    study.add_identifiers('some_doi', 'en', agency='DOI')
+                    exp_sets.append('openaire_data')
+                resp_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                               metadata_prefix=mdprefix,
+                                                               identifier='someid'))
+                header_el = resp_el.find('./oai:GetRecord/oai:record/oai:header', XMLNS)
                 set_els = header_el.findall('./oai:setSpec', XMLNS)
                 self.assertEqual(len(set_els), len(exp_sets))
                 for set_el in set_els:
@@ -311,22 +347,27 @@ class TestHTTPResponses(_Base):
         resp = self.fetch(OAI_URL + '?verb=ListSets')
         xml_el = self._resp_to_xmlel(resp)
         set_els = xml_el.findall('./oai:ListSets/oai:set', XMLNS)
-        # Six set elements: One for each set type: 'spec: language, name: Language'
-        # and one for each value: 'spec: language:en'
-        self.assertEqual(len(set_els), 7)
-        exp_sets = {'language': 'Language',
-                    'language:fi': '',
-                    'language:en': '',
-                    'source': 'Source archive',
-                    'source:some.base.url': '',
-                    'source:FSD': '',
-                    'openaire_data': 'OpenAIRE'}
+        exp_sets = {'language': ('Language', None),
+                    'language:fi': ('', None),
+                    'language:en': ('', None),
+                    'source': ('Source archive', None),
+                    'source:some.base.url': ('', None),
+                    'source:FSD': ('', None),
+                    'openaire_data': ('OpenAIRE', None),
+                    'thematic': ('Thematic', 'Thematic grouping of records'),
+                    'thematic:social_sciences': ('Social sciences', 'Studies in social sciences'),
+                    'thematic:humanities': ('Humanities', 'Studies in humanities')}
+        self.assertEqual(len(set_els), len(exp_sets))
         for set_el in set_els:
             spec = ''.join(set_el.find('./oai:setSpec', XMLNS).itertext())
             name = ''.join(set_el.find('./oai:setName', XMLNS).itertext())
             self.assertIn(spec, exp_sets)
-            exp_name = exp_sets.pop(spec)
+            exp_name, exp_desc = exp_sets.pop(spec)
             self.assertEqual(name, exp_name)
+            desc_el = set_el.find('./oai:setDescription', XMLNS)
+            desc = ''.join(desc_el.itertext()) if desc_el is not None else None
+            self.assertEqual(desc, exp_desc)
+        self.assertEqual(exp_sets, {})
 
     # LISTMETADATAFORMATS
 
@@ -411,50 +452,69 @@ class TestHTTPResponses(_Base):
                 self.assertEqual(exp_headers, {})
 
 
+@mock.patch('kuha_oai_pmh_repo_handler.oai.protocol.datetime.datetime',
+            FakeDatetime, spec=datetime.datetime)
 class TestQueries(_Base):
+
+    maxDiff = None
 
     def setUp(self):
         super().setUp()
-
-    @mock.patch('kuha_oai_pmh_repo_handler.oai.protocol.datetime.datetime',
-                FakeDatetime, spec=datetime.datetime)
-    def test_GET_listrecords_query_filter_for_source_set_and_value(self):
-        self.maxDiff = None
         self._init_patcher(mock.patch('kuha_common.query.QueryController.query_count'))
-        mock_fetch = self._init_patcher(mock.patch(
+        self._mock_fetch = self._init_patcher(mock.patch(
             'kuha_common.document_store.client.JSONStreamClient.fetch'))
+
+    def _assert_filter_is(self, exp_filter):
+        calls = self._mock_fetch.call_args_list
+        self.assertEqual(len(calls), 1)
+        cargs, _ = calls.pop()
+        self.assertEqual(cargs[2]['_filter'], exp_filter)
+
+    def _listrecords_with_set(self, set_str, exp_filter, assert_func=None):
+        assert_func = assert_func or self._assert_filter_is
+        for mdprefix in MD_PREFIXES:
+            with self.subTest(metadata_prefix=mdprefix):
+                if mdprefix == 'oai_datacite':
+                    exp_filter.update({'identifiers.agency': {'$in': [
+                        'DOI', 'ARK', 'Handle', 'PURL', 'URN', 'URL']}})
+                self.fetch(OAI_URL + '?verb=ListRecords&set={set_str}&'
+                           'metadataPrefix={md}'.format(md=mdprefix, set_str=set_str))
+                assert_func(exp_filter)
+
+    def test_GET_listrecords_query_filter_for_source_set_and_value(self):
         exp_filter = {'_metadata.updated': {'$lt': {'$isodate': '2019-12-12T07:14:38Z'}},
                       "_provenance": {"$elemMatch": {"base_url": "http://services.fsd.tuni.fi/v0/oai",
                                                      "direct": True}}}
-        for mdprefix in MD_PREFIXES:
-            with self.subTest(metadata_prefix=mdprefix):
-                if mdprefix == 'oai_datacite':
-                    exp_filter.update({'identifiers.agency': {'$in': [
-                        'DOI', 'ARK', 'Handle', 'PURL', 'URN', 'URL']}})
-                self.fetch(OAI_URL + '?verb=ListRecords&set=source:FSD&metadataPrefix={md}'.format(md=mdprefix))
-                calls = mock_fetch.call_args_list
-                self.assertEqual(len(calls), 1)
-                cargs, _ = calls.pop()
-                self.assertEqual(cargs[2]['_filter'], exp_filter)
-            mock_fetch.reset_mock()
+        self._listrecords_with_set('source:FSD', exp_filter)
 
-    @mock.patch('kuha_oai_pmh_repo_handler.oai.protocol.datetime.datetime',
-                FakeDatetime, spec=datetime.datetime)
     def test_GET_listrecords_executes_correct_query_for_source_set(self):
-        self.maxDiff = None
-        self._init_patcher(mock.patch('kuha_common.query.QueryController.query_count'))
-        mock_fetch = self._init_patcher(mock.patch(
-            'kuha_common.document_store.client.JSONStreamClient.fetch'))
         exp_filter = {'_metadata.updated': {'$lt': {'$isodate': '2019-12-12T07:14:38Z'}},
                       '_provenance': {'$elemMatch': {'base_url': {'$exists': True}, 'direct': True}}}
-        for mdprefix in MD_PREFIXES:
-            with self.subTest(metadata_prefix=mdprefix):
-                if mdprefix == 'oai_datacite':
-                    exp_filter.update({'identifiers.agency': {'$in': [
-                        'DOI', 'ARK', 'Handle', 'PURL', 'URN', 'URL']}})
-                self.fetch(OAI_URL + '?verb=ListRecords&set=source&metadataPrefix={md}'.format(md=mdprefix))
-                calls = mock_fetch.call_args_list
-                self.assertEqual(len(calls), 1)
-                cargs, _ = calls.pop()
-                self.assertEqual(cargs[2]['_filter'], exp_filter)
-            mock_fetch.reset_mock()
+        self._listrecords_with_set('source', exp_filter)
+
+    def _assert_filter_for_configurable(self, exp_filter):
+        exp_filter = dict(exp_filter)
+        calls = self._mock_fetch.call_args_list
+        self.assertEqual(len(calls), 1)
+        cargs, _ = calls.pop()
+        cfilter = cargs[2]['_filter']
+        self.assertCountEqual(list(cfilter.keys()), list(exp_filter.keys()))
+        c_agg_ids_filter = cfilter.pop('_aggregator_identifier')
+        exp_agg_ids_filter = exp_filter.pop('_aggregator_identifier')
+        self.assertEqual(list(c_agg_ids_filter.keys()), list(exp_agg_ids_filter.keys()))
+        self.assertCountEqual(c_agg_ids_filter['$in'], exp_agg_ids_filter['$in'])
+        self.assertEqual(cfilter, exp_filter)
+
+    def test_GET_listrecords_query_filter_for_configurable_set_and_value(self):
+        exp_filter = {'_metadata.updated': {'$lt': {'$isodate': '2019-12-12T07:14:38Z'}},
+                      '_aggregator_identifier': {'$in': ['id_1', 'id_2']}}
+        self._listrecords_with_set('thematic:social_sciences',
+                                   exp_filter,
+                                   assert_func=self._assert_filter_for_configurable)
+
+    def test_GET_listrecords_executes_correct_query_for_configurable_set(self):
+        exp_filter = {'_metadata.updated': {'$lt': {'$isodate': '2019-12-12T07:14:38Z'}},
+                      '_aggregator_identifier': {'$in': ['id_1', 'id_2', 'id_3', 'id_4']}}
+        self._listrecords_with_set('thematic',
+                                   exp_filter,
+                                   assert_func=self._assert_filter_for_configurable)
