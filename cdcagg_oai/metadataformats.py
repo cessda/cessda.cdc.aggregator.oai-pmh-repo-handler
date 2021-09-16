@@ -13,7 +13,7 @@
 
 """Define metadataformats and sets of the OAI-PMH Repo Handler."""
 # Stdlib
-import os.path
+import os
 # PyPI
 from yaml import safe_load
 # Kuha Common
@@ -30,20 +30,6 @@ from kuha_oai_pmh_repo_handler.constants import TEMPLATE_FOLDER
 from kuha_oai_pmh_repo_handler.oai.constants import OAI_RESPONSE_LIST_SIZE
 # CDCAGG Common
 from cdcagg_common.records import Study
-
-
-def _path_to(filepath):
-    """Get absolute path to 'filepath'.
-
-    The path will start from the root of this package.
-
-    :param str filepath: ending the returned path.
-    :returns: absolute path
-    """
-    return os.path.abspath(
-        os.path.join(
-            os.path.dirname(
-                os.path.realpath(__file__)), '..', filepath))
 
 
 class ConfigurableAggMDSet(MDFormat.MDSet):
@@ -199,7 +185,7 @@ class SourceAggMDSet(MDFormat.MDSet):
     """
 
     spec = 'source'
-    _default_filepath = _path_to('sources_default.yaml')
+    _default_filepath = os.path.join(os.getcwd(), 'sources_default.yaml')
     # Contains source definitions. Populated once on configure and kept in-memory
     # for the rest of the application run time.
     _source_defs = None
