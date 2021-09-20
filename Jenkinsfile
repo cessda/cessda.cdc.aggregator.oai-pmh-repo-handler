@@ -27,6 +27,7 @@ node(node_label) {
     def pylint_report_path = 'pylint_report.txt'
     def coverage_xml_path = 'coverage.xml'
     def sonar_properties_path = 'sonar-project.properties'
+    def image_tag = "${docker_repo}/cdcagg-oai:${env.BRANCH_NAME.toLowerCase().replaceAll('[^a-z0-9\\.\\_\\-]', '-')}-${env.BUILD_NUMBER}"
 
     // prepare workspace
     def myworkspace = ''
@@ -156,6 +157,13 @@ node(node_label) {
         // run parallel tasks
         parallel tasks_1
         parallel tasks_2
+        stage('Build docker image') {
+            withEnv(['DOCKER_BUILDKIT=1']) {
+                withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
+                    sh "docker build -t ${image_tag} --secret id=bbcreds,env=BBCREDS ."
+                }
+            }
+        }
     } catch (err) {
         currentBuild.result = 'FAILURE'
         sendmail('FAILURE')

@@ -1,0 +1,12 @@
+tests
+Jenkinsfile
+sonar-project.properties
+.git
+.gitignore
+*.egg-info
+*.md
+.coverage
+.coveragerc
+coverage.xml
+.pylintrc
+tox.ini
