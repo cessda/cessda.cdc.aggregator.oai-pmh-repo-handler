@@ -9,8 +9,8 @@ Genshi==0.7.5
 PyYAML==5.4.1
 
 # CDCAGG shared library
-git+https://${BBCREDS}@bitbucket.org/cessda/cessda.cdc.aggregator.shared-library@master#egg=cdcagg_common
+git+https://${BBCREDS}@bitbucket.org/cessda/cessda.cdc.aggregator.shared-library@0.1.0#egg=cdcagg_common
 # Kuha Common
-git+https://bitbucket.org/tietoarkisto/kuha_common@cdcagg#egg=kuha_common
+git+https://bitbucket.org/tietoarkisto/kuha_common@de60495dbf188bd5fd6bb391cc80e9491b409589#egg=kuha_common
 # Kuha OAI-PMH Repo Handler
-git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@cdcagg#egg=kuha_oai_pmh_repo_handler
+git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@dc3af9ef6d3dfffab179862b68950279fd2f2da7#egg=kuha_oai_pmh_repo_handler

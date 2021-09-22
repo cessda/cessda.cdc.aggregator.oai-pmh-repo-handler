@@ -21,6 +21,15 @@ with open('VERSION', 'r') as file_obj:
     version = file_obj.readline().strip()
 
 
+requires = [
+    'kuha_common>=1.0.0',
+    'kuha_oai_pmh_repo_handler>=1.0.0',
+    'cdcagg_common>=0.1.0',
+    'Genshi',
+    'PyYaml'
+]
+
+
 setup(name='cdcagg_oai',
       version=version,
       url='https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler',
@@ -30,6 +39,7 @@ setup(name='cdcagg_oai',
       author_email='toni.sissala@tuni.fi',
       packages=find_packages(exclude=['tests']),
       include_package_data=True,
+      install_requires=requires,
       entry_points={
         'cdcagg.oai.metadataformats': [
             'AggOAIDDI25MetadataFormat = cdcagg_oai.metadataformats:AggOAIDDI25MetadataFormat',

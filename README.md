@@ -13,4 +13,39 @@
 [![Technical Debt](https://sonarqube.cessda.eu/api/project_badges/measure?project=cessda.cdc.aggregator.oai-pmh-repo-handler&metric=sqale_index)](https://sonarqube.cessda.eu/dashboard?id=cessda.cdc.aggregator.oai-pmh-repo-handler)
 [![Vulnerabilities](https://sonarqube.cessda.eu/api/project_badges/measure?project=cessda.cdc.aggregator.oai-pmh-repo-handler&metric=vulnerabilities)](https://sonarqube.cessda.eu/dashboard?id=cessda.cdc.aggregator.oai-pmh-repo-handler)
 
-Work in progress
+HTTP server providing an OAI-PMH aggregator endpoint serving DocStore
+records. This program is part of CESSDA CDC Aggregator.
+
+
+## Installation ##
+
+```sh
+python3 -m venv cdcagg-env
+source cdcagg-env/bin/activate
+cd cessda.cdc.aggregator.oai-pmh-repo-handler
+pip install -r requirements.txt
+pip install .
+```
+
+
+## Run ##
+
+Replace <docstore-url> with an URL pointing to a DocStore
+server. Replace <base-url> with your endpoint OAI-PMH Base
+URL. Replace <admin-email> with administrator email address.
+
+```sh
+python -m cdcagg_oai --document-store-url <docstore-url> --oai-pmh-base-url <base-url> --oai-pmh-admin-email <admin-email>
+```
+
+
+## Configuration reference ##
+
+```sh
+python -m cdcagg_oai --help
+```
+
+
+## License ##
+
+See the [LICENSE](LICENSE.txt) file.
