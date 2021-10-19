@@ -18,6 +18,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ### Security
 
+
+## 0.2.0 - unreleased
+
+### Fixed
+
+- deletedRecord declaration is now configurable. (Fixes [#16](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/16))
+
+
 ## 0.1.0 - 2021-09-21
 
 ### Added

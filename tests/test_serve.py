@@ -32,6 +32,7 @@ from kuha_oai_pmh_repo_handler.oai.constants import (
     OAI_RESPOND_WITH_REQ_URL,
     OAI_REPO_NAME
 )
+from kuha_oai_pmh_repo_handler import metadataformats as kuha_metadataformats
 from cdcagg_common.records import Study
 from cdcagg_oai import (
     serve,
@@ -129,6 +130,8 @@ class _Base(AsyncHTTPTestCase):
                                                      'data', 'configurable_sets.yaml'))),
             oai_pmh_namespace_identifier=kw.get('oai_pmh_namespace_identifier',
                                                 OAI_REC_NAMESPACE_IDENTIFIER),
+            oai_pmh_deleted_records=kw.get('oai_pmh_deleted_records',
+                                           metadataformats.MDFormat._deleted_records_default),
             oai_pmh_base_url=kw.get('oai_pmh_base_url',
                                     'base'),
             oai_pmh_admin_email=kw.get('oai_pmh_admin_email',
@@ -197,17 +200,26 @@ class TestHTTPResponses(_Base):
         return self.fetch(self._requested_url)
 
     def _assert_oai_header_request_attributes(self, response, expected_attrs, msg=None):
-        response_xml = self._resp_to_xmlel(response)
+        response_xml = self.resp_to_xmlel(response)
         request_element = response_xml.find('./oai:request', XMLNS)
         self.assertEqual(request_element.attrib, expected_attrs, msg=msg)
 
     @staticmethod
-    def _resp_to_xmlel(resp):
+    def resp_to_xmlel(resp):
         return ElementTree.fromstring(resp.body)
 
     def test_responds_with_missing_verb(self):
-        xml = self._resp_to_xmlel(self.fetch(OAI_URL))
+        xml = self.resp_to_xmlel(self.fetch(OAI_URL))
         self.assertEqual(''.join(xml.find('oai:error', XMLNS).itertext()), 'Missing verb')
+
+    # IDENTIFY
+
+    def test_GET_identify_returns_default_deletedRecord(self):
+        study = Study()
+        self._mock_query_single.side_effect = mock_coro(study)
+        resp_xml = self.resp_to_xmlel(self.fetch(OAI_URL + '?verb=Identify'))
+        self.assertEqual(''.join(resp_xml.find('./oai:Identify/oai:deletedRecord', XMLNS).itertext()),
+                         'transient')
 
     # GETRECORD
 
@@ -253,7 +265,7 @@ class TestHTTPResponses(_Base):
                     study.add_identifiers('some_doi', 'en', agency='DOI')
                 resp = self.oai_request(study, verb='GetRecord', metadata_prefix=metadata_prefix,
                                         identifier='study_id')
-                xmlel = self._resp_to_xmlel(resp)
+                xmlel = self.resp_to_xmlel(resp)
                 origindesc_el = xmlel.find(
                     './oai:GetRecord/oai:record/oai:about/oai_p:provenance/oai_p:originDescription', XMLNS)
                 self._assert_origindesc(origindesc_el, {'altered': 'True', 'harvestDate': '2020-01-01T23:00.00Z'},
@@ -284,9 +296,9 @@ class TestHTTPResponses(_Base):
                 study.set_deleted('2000-01-01T23:00:00Z')
                 if mdprefix == 'oai_datacite':
                     study.add_identifiers('some_doi', 'en', agency='DOI')
-                response_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
-                                                                   metadata_prefix=mdprefix,
-                                                                   identifier='someid'))
+                response_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                                  metadata_prefix=mdprefix,
+                                                                  identifier='someid'))
                 header_el = response_el.find('./oai:GetRecord/oai:record/oai:header', XMLNS)
                 # Datestamp of the deleted record must be the date and time that it was deleted.
                 self.assertEqual(''.join(header_el.find('./oai:datestamp', XMLNS).itertext()),
@@ -313,9 +325,9 @@ class TestHTTPResponses(_Base):
                 if mdprefix == 'oai_datacite':
                     study.add_identifiers('some_doi', 'en', agency='DOI')
                     exp_sets.append('openaire_data')
-                response_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
-                                                                   metadata_prefix=mdprefix,
-                                                                   identifier='someid'))
+                response_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                                  metadata_prefix=mdprefix,
+                                                                  identifier='someid'))
                 header_el = response_el.find('./oai:GetRecord/oai:record/oai:header', XMLNS)
                 set_els = header_el.findall('./oai:setSpec', XMLNS)
                 self.assertEqual(len(set_els), len(exp_sets))
@@ -339,9 +351,9 @@ class TestHTTPResponses(_Base):
                 if mdprefix == 'oai_datacite':
                     study.add_identifiers('some_doi', 'en', agency='DOI')
                     exp_sets.append('openaire_data')
-                resp_el = self._resp_to_xmlel(self.oai_request(study, verb='GetRecord',
-                                                               metadata_prefix=mdprefix,
-                                                               identifier='someid'))
+                resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                              metadata_prefix=mdprefix,
+                                                              identifier='someid'))
                 header_el = resp_el.find('./oai:GetRecord/oai:record/oai:header', XMLNS)
                 set_els = header_el.findall('./oai:setSpec', XMLNS)
                 self.assertEqual(len(set_els), len(exp_sets))
@@ -358,7 +370,7 @@ class TestHTTPResponses(_Base):
             }}[fieldname.path]
         self._mock_query_distinct.side_effect = mock_coro(func=_query_distinct)
         resp = self.fetch(OAI_URL + '?verb=ListSets')
-        xml_el = self._resp_to_xmlel(resp)
+        xml_el = self.resp_to_xmlel(resp)
         set_els = xml_el.findall('./oai:ListSets/oai:set', XMLNS)
         exp_sets = {'language': ('Language', None),
                     'language:fi': ('', None),
@@ -398,7 +410,7 @@ class TestHTTPResponses(_Base):
         self.assertEqual(list(MD_PREFIXES), list(expected.keys()), msg="Inconsistency in expected metadata and "
                          "declared metadata prefixes. Test must be fixed.")
         response = self.fetch(OAI_URL + '?verb=ListMetadataFormats')
-        xmlel = self._resp_to_xmlel(response)
+        xmlel = self.resp_to_xmlel(response)
         for mdel in xmlel.findall('./oai:ListMetadataFormats/oai:metadataFormat', XMLNS):
             mdprefix = ''.join(mdel.find('./oai:metadataPrefix', XMLNS).itertext())
             self.assertIn(mdprefix, expected)
@@ -450,7 +462,7 @@ class TestHTTPResponses(_Base):
                                'third_identifier': ('2002-01-01T23:24:25Z', True)}
                 resp = self.fetch(OAI_URL + '?verb=ListRecords&metadataPrefix={md}'.format(md=mdprefix))
                 self.assertEqual(resp.code, 200)
-                xml = self._resp_to_xmlel(resp)
+                xml = self.resp_to_xmlel(resp)
                 rec_els = xml.findall('./oai:ListRecords/oai:record', XMLNS)
                 self.assertEqual(len(rec_els), 3)
                 for rec_el in rec_els:
@@ -531,3 +543,26 @@ class TestQueries(_Base):
         self._listrecords_with_set('thematic',
                                    exp_filter,
                                    assert_func=self._assert_filter_for_configurable)
+
+
+class TestConfigurations(_Base):
+
+    def setUp(self):
+        self._stored = dict(kuha_metadataformats._STORED)
+        self.settings(oai_pmh_deleted_records='persistent')
+        super().setUp()
+        self._mock_query_single = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_single'))
+
+    def tearDown(self):
+        kuha_metadataformats._STORED = self._stored
+        super().tearDown()
+
+    # IDENTIFY
+
+    def test_GET_identify_returns_changed_deletedRecord(self):
+        study = Study()
+        self._mock_query_single.side_effect = mock_coro(study)
+        resp_xml = TestHTTPResponses.resp_to_xmlel(self.fetch(OAI_URL + '?verb=Identify'))
+        self.assertEqual(''.join(resp_xml.find('./oai:Identify/oai:deletedRecord', XMLNS).itertext()),
+                         'persistent')
