@@ -268,11 +268,11 @@ class TestHTTPResponses(_Base):
                 xmlel = self.resp_to_xmlel(resp)
                 origindesc_el = xmlel.find(
                     './oai:GetRecord/oai:record/oai:about/oai_p:provenance/oai_p:originDescription', XMLNS)
-                self._assert_origindesc(origindesc_el, {'altered': 'True', 'harvestDate': '2020-01-01T23:00.00Z'},
+                self._assert_origindesc(origindesc_el, {'altered': 'true', 'harvestDate': '2020-01-01T23:00.00Z'},
                                         'some.base', 'some:identifier', '1999-01-01', 'somenamespace')
                 # Nested origindesc
                 nested_origindesc_el = origindesc_el.find('./oai_p:originDescription', XMLNS)
-                self._assert_origindesc(nested_origindesc_el, {'altered': 'False',
+                self._assert_origindesc(nested_origindesc_el, {'altered': 'false',
                                                                'harvestDate': '2019-01-01T23:00.00Z'},
                                         'another.base', 'another:identifier', '1998-01-01',
                                         'anothernamespace')

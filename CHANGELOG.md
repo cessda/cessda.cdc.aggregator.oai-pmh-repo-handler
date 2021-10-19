@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ### Fixed
 
+- Value for the altered attribute in Provenance containers is now either 'true' or 'false. (Fixes [#14](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/14))
 - deletedRecord declaration is now configurable. (Fixes [#16](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/16))
 
 

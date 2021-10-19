@@ -6,7 +6,10 @@
     xmlns:py="http://genshi.edgewall.org/">
   <py:def function="render_container(prov, next_index=None)"
           py:with="next_index = None if len(record.study._provenance) == next_index else next_index">
-    <originDescription harvestDate="${prov.get_value()}" altered="${prov.attr_altered.get_value()}">
+    <originDescription
+        py:with="altered = 'true' if prov.attr_altered.get_value() is True else 'false'"
+        harvestDate="${prov.get_value()}"
+        altered="${altered}">
       <baseUrl>${prov.attr_base_url.get_value()}</baseUrl>
       <identifier>${prov.attr_identifier.get_value()}</identifier>
       <datestamp>${prov.attr_datestamp.get_value()}</datestamp>
