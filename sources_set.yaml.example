@@ -1,8 +1,6 @@
-# This is a default source definition file used to construct OAI-Set
+# This is an example source definition file used to construct OAI-Set
 # that are based on base url of the originating archive.
 # Use this file as an example to build custom source definitions.
-# If this file is changed, it leads to all default source definitions
-# being changed also.
 #
 # NOTE that both the url and source values must be unique within
 # this YAML document. Otherwise the program will not work correctly.
