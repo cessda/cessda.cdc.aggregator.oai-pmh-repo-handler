@@ -10,8 +10,11 @@
 # is no validation performed against this file.
 ---
 -
-  url: 'http://services.fsd.tuni.fi/v0/oai'
-  source: 'FSD'
+  url: 'http://archive_1.url/oai'
+  source: 'Archive_1'
+  setname: 'a short human-readable string naming the set source:archive_1'
+  description: 'an optional long description for the set source:archive_1'
 -
-  url: 'https://www.da-ra.de/oaip'
-  source: 'GESIS'
+  url: 'http://archive_2.url/oai'
+  source: 'Archive_2'
+  setname: 'a short human-readable string naming the set source:archive_2'

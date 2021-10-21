@@ -373,11 +373,10 @@ class TestHTTPResponses(_Base):
         xml_el = self.resp_to_xmlel(resp)
         set_els = xml_el.findall('./oai:ListSets/oai:set', XMLNS)
         exp_sets = {'language': ('Language', None),
-                    'language:fi': ('', None),
-                    'language:en': ('', None),
+                    'language:fi': ('Language fi', None),
+                    'language:en': ('Language en', None),
                     'source': ('Source archive', None),
-                    'source:some.base.url': ('', None),
-                    'source:FSD': ('', None),
+                    'source:FSD': ('FSD metadata', 'FSD metadata description'),
                     'openaire_data': ('OpenAIRE', None),
                     'thematic': ('Thematic', 'Thematic grouping of records'),
                     'thematic:social_sciences': ('Social sciences', 'Studies in social sciences'),

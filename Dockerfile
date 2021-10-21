@@ -76,7 +76,6 @@ FROM python:3.9-slim as prod
 # Add them to PATH.
 
 COPY --from=builder /root/.local /root/.local
-COPY --from=builder /docker-build/sources_default.yaml .
 ENV PATH=/root/.local/bin:$PATH
 
 ENTRYPOINT ["python", "-m", "cdcagg_oai"]
