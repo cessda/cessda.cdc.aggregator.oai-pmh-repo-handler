@@ -2,6 +2,9 @@
 -
   url: 'http://services.fsd.tuni.fi/v0/oai'
   source: 'FSD'
+  setname: 'FSD metadata'
+  description: 'FSD metadata description'
 -
   url: 'https://www.da-ra.de/oaip'
   source: 'GESIS'
+  setname: 'GESIS metadata'

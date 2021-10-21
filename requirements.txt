@@ -13,4 +13,4 @@ git+https://${BBCREDS}@bitbucket.org/cessda/cessda.cdc.aggregator.shared-library
 # Kuha Common
 git+https://bitbucket.org/tietoarkisto/kuha_common@de60495dbf188bd5fd6bb391cc80e9491b409589#egg=kuha_common
 # Kuha OAI-PMH Repo Handler
-git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@142bf3cf64999ca99433abf8ad79225bd783312e#egg=kuha_oai_pmh_repo_handler
+git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@e89c58787075e9e79dfb4a31b15d8b1129b1efcf#egg=kuha_oai_pmh_repo_handler

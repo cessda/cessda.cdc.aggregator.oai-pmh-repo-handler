@@ -1,0 +1,18 @@
+# This is an example source definition file used to construct OAI-Set
+# that are based on base url of the originating archive.
+# Use this file as an example to build custom source definitions.
+#
+# NOTE that both the url and source values must be unique within
+# this YAML document. Otherwise the program will not work correctly.
+# The uniqueness is not enforced by the program. In other words, there
+# is no validation performed against this file.
+---
+-
+  url: 'http://archive_1.url/oai'
+  source: 'Archive_1'
+  setname: 'a short human-readable string naming the set source:archive_1'
+  description: 'an optional long description for the set source:archive_1'
+-
+  url: 'http://archive_2.url/oai'
+  source: 'Archive_2'
+  setname: 'a short human-readable string naming the set source:archive_2'
