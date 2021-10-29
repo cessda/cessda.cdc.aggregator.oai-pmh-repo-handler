@@ -41,10 +41,12 @@ class ConfigurableAggMDSet(MDFormat.MDSet):
     record's aggregator_identifiers. The mapping file is read everytime this class is used
     to query(), get() or filter() records.
 
-    The configuration file is expected to be valid YAML. A single spec-key must be found
-    from top-level. The spec value is used as a top-level OAI setspec value and identifies
-    this MDSet. Other top-level keys must be unique and contain list of identifiers that
-    belong to that particular OAI set.
+    The mapping file is expected to be valid YAML. A single
+    spec-key must be found from top-level. The spec value is used as a
+    top-level OAI setspec value and identifies this MDSet. The
+    nodes-key contains a list of second-level set definitions. The
+    second-level spec-values must be unique and contain list of
+    identifiers that belong to that particular OAI set.
 
     Configuration file syntax example::
 
@@ -77,7 +79,7 @@ class ConfigurableAggMDSet(MDFormat.MDSet):
 
       * Supports hierachical set of records with a single top-level node. Example setspec: top_level_node
       * Only direct child nodes are supported after the top-level node. Example setspec: top_level_node:child_node
-      * The configuration file syntax is checked on configure(), but is not validated in any way. The file may be valid
+      * The mapping file syntax is checked on configure(), but is not validated in any way. The file may be valid
         YAML, but not interpreted correctly.
       * The top-level spec node is used to identify this particular MDSet.
         For example if the configuration file declares spec: 'first' a request with
