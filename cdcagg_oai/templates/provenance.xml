@@ -10,7 +10,7 @@
         py:with="altered = 'true' if prov.attr_altered.get_value() is True else 'false'"
         harvestDate="${prov.get_value()}"
         altered="${altered}">
-      <baseUrl>${prov.attr_base_url.get_value()}</baseUrl>
+      <baseURL>${prov.attr_base_url.get_value()}</baseURL>
       <identifier>${prov.attr_identifier.get_value()}</identifier>
       <datestamp>${prov.attr_datestamp.get_value()}</datestamp>
       <metadataNamespace>${prov.attr_metadata_namespace.get_value()}</metadataNamespace>

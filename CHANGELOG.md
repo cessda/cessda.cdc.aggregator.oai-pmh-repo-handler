@@ -48,6 +48,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   [#15](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/15))
 - deletedRecord declaration is now configurable. (Fixes
   [#16](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/16))
+- Provenance container's baseUrl element name should be baseURL. (Fixes
+  [#19](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/19))
 
 
 ## 0.1.0 - 2021-09-21

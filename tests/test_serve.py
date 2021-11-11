@@ -241,7 +241,7 @@ class TestHTTPResponses(_Base):
                            exp_baseurl, exp_identifier,
                            exp_datestamp, exp_namespace):
         self.assertEqual(origindesc_el.attrib, exp_attrs)
-        self.assertEqual(''.join(origindesc_el.find('./oai_p:baseUrl', XMLNS).itertext()),
+        self.assertEqual(''.join(origindesc_el.find('./oai_p:baseURL', XMLNS).itertext()),
                          exp_baseurl)
         self.assertEqual(''.join(origindesc_el.find('./oai_p:identifier', XMLNS).itertext()),
                          exp_identifier)
