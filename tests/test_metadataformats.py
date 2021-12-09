@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os.path
 from tempfile import NamedTemporaryFile
 from unittest import mock
 from argparse import Namespace
@@ -41,7 +42,6 @@ nodes:
     - id_4
 """
 
-
 SOURCES = """
 -
   url: 'http://some.url'
@@ -58,6 +58,24 @@ SOURCES = """
 INVALID_YAML = """
 outer: {inner: value)
 """
+
+
+def _configurable_sets_with_path(filename):
+    return """
+spec: 'thematic'
+name: 'Thematic'
+description: 'Thematic grouping of records'
+nodes:
+  - spec: 'social_sciences'
+    name: 'Social sciences'
+    description: 'Studies in social sciences'
+    identifiers:
+    - id_1
+    - id_2
+  - path: '{ext_path}'
+""".format(ext_path=os.path.abspath(os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        'data', filename)))
 
 
 class TestConfigurableMDSet(KuhaUnitTestCase):
@@ -107,6 +125,163 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
             rval = metadataformats.ConfigurableAggMDSet.configure(settings)
         self.assertEqual(metadataformats.ConfigurableAggMDSet._loaded_filepath, somefile.name)
         self.assertTrue(rval)
+
+    def _assert_configure_raises_InvalidMappingConfig(self, filecontent):
+        with NamedTemporaryFile(mode='w', delete=False) as somefile:
+            somefile.write(filecontent)
+            somefile.close()
+            settings = Namespace(oai_set_configurable_path=somefile.name)
+            with self.assertRaises(metadataformats.InvalidMappingConfig):
+                metadataformats.ConfigurableAggMDSet.configure(settings)
+
+    def test_configure_raises_config_no_spec(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    name: 'name'\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_config_invalid_spec(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: True\n"
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    name: 'name'\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_config_no_name(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    name: 'name'\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_config_invalid_name(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: ''\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    name: 'name'\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_config_no_nodes(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'")
+
+    def test_configure_raises_config_invalid_nodes(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'\n"
+            "nodes: 'somenodes'")
+
+    def test_configure_raises_node_no_spec(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - name: 'name'\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_node_invalid_spec(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - spec: ''\n"
+            "    name: 'name'\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_node_no_name(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_node_invalid_name(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    name: 1\n"
+            "    identifiers:\n"
+            "    - id_1")
+
+    def test_configure_raises_node_no_identifiers(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    name: 'name'")
+
+    def test_configure_raises_node_invalid_identifiers(self):
+        self._assert_configure_raises_InvalidMappingConfig(
+            "spec: 'spec'\n"
+            "name: 'somename'\n"
+            "nodes:\n"
+            "  - spec: 'somespec'\n"
+            "    name: 'name'\n"
+            "    identifiers: \n"
+            "      key: 'value'")
+
+    def test_get_config_with_path_single_node(self):
+        conf_set = _configurable_sets_with_path('ext_confset.yaml')
+        with NamedTemporaryFile(mode='w', delete=False) as somefile:
+            somefile.write(conf_set)
+            somefile.close()
+            settings = Namespace(oai_set_configurable_path=somefile.name)
+            metadataformats.ConfigurableAggMDSet.configure(settings)
+            conf_agg_set = metadataformats.ConfigurableAggMDSet('metadataformat')
+        self._loop.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
+        expected = [{'description': 'Studies in social sciences',
+                     'identifiers': ['id_1', 'id_2'],
+                     'name': 'Social sciences',
+                     'spec': 'social_sciences'},
+                    {'description': 'Studies in history',
+                     'identifiers': ['id_5', 'id_6'],
+                     'name': 'History',
+                     'spec': 'history'}]
+        cnf = self._stored_result
+        self.assertEqual(cnf['nodes'], expected)
+
+    def test_get_config_with_path_multiple_nodes(self):
+        conf_set = _configurable_sets_with_path('ext_confsets.yaml')
+        with NamedTemporaryFile(mode='w', delete=False) as somefile:
+            somefile.write(conf_set)
+            somefile.close()
+            settings = Namespace(oai_set_configurable_path=somefile.name)
+            metadataformats.ConfigurableAggMDSet.configure(settings)
+            conf_agg_set = metadataformats.ConfigurableAggMDSet('metadataformat')
+        self._loop.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
+        expected = [{'description': 'Studies in social sciences',
+                     'identifiers': ['id_1', 'id_2'],
+                     'name': 'Social sciences',
+                     'spec': 'social_sciences'},
+                    {'description': 'Studies in history',
+                     'identifiers': ['id_5', 'id_6'],
+                     'name': 'History',
+                     'spec': 'history'},
+                    {'description': 'Literature Studies',
+                     'identifiers': ['id_7', 'id_8'],
+                     'name': 'Literature',
+                     'spec': 'literature'}]
+        cnf = self._stored_result
+        self.assertEqual(cnf['nodes'], expected)
 
 
 class TestSourceAggMDSet(KuhaUnitTestCase):

@@ -26,6 +26,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Mapping file syntax for source-sets (SourceAggMDSet-class) now
   supports setname and description key-value pairs. The setname is
   mandatory while description is optional.
+- Mapping file for configurable-sets now supports external mapping
+  files via `path` key. (Implements
+  [#18](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/18))
+- Mapping file for configurable-sets is validated upon server startup.
 
 ### Changed
 

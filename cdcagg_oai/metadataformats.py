@@ -32,6 +32,31 @@ from kuha_oai_pmh_repo_handler.oai.constants import OAI_RESPONSE_LIST_SIZE
 from cdcagg_common.records import Study
 
 
+class InvalidMappingConfig(Exception):
+    """Raised on invalid config/mapping file contents"""
+
+
+def _is_nonempty_str(value):
+    return hasattr(value, 'encode') and len(value) > 0
+
+
+def _is_nonempty_list(value):
+    return hasattr(value, 'sort') and len(value) > 0
+
+
+def _validate_keys_values(node, path, *keys_funcs):
+    keys_funcs = [('spec', _is_nonempty_str),
+                  ('name', _is_nonempty_str)] + list(keys_funcs)
+    for key, func in keys_funcs:
+        if key not in node:
+            raise InvalidMappingConfig("Invalid mapping file '%s'. Did not find a '%s' key.'"
+                                       % (path, key))
+        value = node[key]
+        if func(value) is False:
+            raise InvalidMappingConfig("Invalid mapping file '%s'. Value '%s' for '%s' is invalid.'"
+                                       % (path, value, key))
+
+
 class ConfigurableAggMDSet(MDFormat.MDSet):
     """Configurable arbitrary OAI set
 
@@ -84,6 +109,45 @@ class ConfigurableAggMDSet(MDFormat.MDSet):
       * The top-level spec node is used to identify this particular MDSet.
         For example if the configuration file declares spec: 'first' a request with
         OAI setspec value first:second implies that the correct MDSet class to consult is this one.
+
+    A single node may alternatively specify a `path` key that points
+    to an absolute path of an external configuration of sets. The
+    external configuration must specify `spec`, `name` and
+    `identifiers` keys and may have an optional `description` key. The
+    external configuration file can specify a single node or multiple
+    nodes in a list.
+
+    Main configuration file with path::
+
+      spec: 'thematic'
+      name: 'Thematic'
+      description: 'Thematic grouping of records'
+      nodes:
+        - path: '/absolute/path/to/ext/conf.yaml'
+
+    External configuration file with a single node::
+
+      spec: 'history'
+      name: 'History'
+      description: 'Studies in history'
+      identifiers:
+      - id_5
+      - id_6
+
+    External configuration file with a list of nodes::
+
+      - spec: 'history'
+        name: 'History'
+        description: 'Studies in history'
+        identifiers:
+        - id_5
+        - id_6
+      - spec: 'literature'
+        name: 'Literature'
+        description: 'Literature Studies'
+        identifiers:
+        - id_7
+        - id_8
     """
     _loaded_filepath = None
 
@@ -96,24 +160,66 @@ class ConfigurableAggMDSet(MDFormat.MDSet):
                    type=str)
 
     @classmethod
+    def _validate_node(cls, node, path):
+        _validate_keys_values(node, path, ('identifiers', _is_nonempty_list))
+
+    @classmethod
+    def _validate_config(cls, cnf_path):
+        def _load_file(cnf_path):
+            with open(cnf_path, 'r') as file_obj:
+                return safe_load(file_obj)
+        cnf = _load_file(cnf_path)
+        _validate_keys_values(cnf, cnf_path, ('nodes', _is_nonempty_list))
+
+        def _iter_node_and_path(cnf):
+            for node_or_path in cnf['nodes']:
+                if 'path' in node_or_path:
+                    ext_node_path = node_or_path['path']
+                    ext_node = _load_file(ext_node_path)
+                    if hasattr(ext_node, 'items'):
+                        ext_node = [ext_node]
+                    for node in ext_node:
+                        yield (node, ext_node_path)
+                    continue
+                yield (node_or_path, cnf_path)
+
+        for node, path in _iter_node_and_path(cnf):
+            cls._validate_node(node, path)
+        return cnf
+
+    @classmethod
     def configure(cls, settings):
         """Load configuration"""
         path = settings.oai_set_configurable_path
         if path is None:
             # Don't load this set.
             return False
-        with open(path, 'r') as file_obj:
-            # Load to make sure its correct yaml syntax.
-            # This class will load the YAML to memory on-demand.
-            cnf = safe_load(file_obj)
+        # Load to ensure correct yaml syntax.
+        cnf = cls._validate_config(path)
         cls.spec = cnf['spec']
         cls._loaded_filepath = path
         return True
 
+    @staticmethod
+    async def _load_file(filepath):
+        with open(filepath, 'r') as file_obj:
+            return safe_load(file_obj)
+
     @classmethod
     async def _get_config(cls):
-        with open(cls._loaded_filepath, 'r') as file_obj:
-            return safe_load(file_obj)
+        cnf = await cls._load_file(cls._loaded_filepath)
+        nodes = []
+        for node in cnf.get('nodes', []):
+            if 'path' in node:
+                ext_cnf = await cls._load_file(node['path'])
+                if hasattr(ext_cnf, 'items'):
+                    # ext_cnf is a dict
+                    ext_cnf = [ext_cnf]
+                nodes.extend(ext_cnf)
+            else:
+                nodes.append(node)
+        cnf['nodes'] = nodes
+        return cnf
 
     async def fields(self):
         """Return list of fields to include when querying for record headers.

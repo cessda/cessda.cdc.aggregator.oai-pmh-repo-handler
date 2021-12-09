@@ -146,12 +146,55 @@ second-level setspec nodes.
 Only a single top-level node is supported. It must contain at least
 one second-level child node.
 
-The mapping file syntax is checked with a YAML parser on server
-startup. The file is not loaded in-memory, but always read
-on-demand. Exceptions may occur after server startup, if the file is
-changed after initial syntax check. Also the file contents are not
-validated in any way. The file may be valid YAML, but not interpreted
-correctly by the program.
+Instead of specifying set definitions directly, the second level node
+may alternatively specify a ``path`` which points to an absolute path
+of an external mapping file that contains second-level set
+definitions.
+
+The external configuration must specify ``spec``, ``name`` and
+``identifiers`` keys and may have an optional ``description`` key. The
+external configuration file can specify a single node or multiple
+nodes in a list.
+
+Main configuration file with path
+
+    spec: 'thematic'
+    name: 'Thematic'
+    description: 'Thematic grouping of records'
+    nodes:
+      - path: '/absolute/path/to/ext/conf.yaml'
+
+External configuration file with a single node
+
+    spec: 'history'
+    name: 'History'
+    description: 'Studies in history'
+    identifiers:
+    - id_5
+    - id_6
+
+External configuration file with a list of nodes
+
+    - spec: 'history'
+      name: 'History'
+      description: 'Studies in history'
+      identifiers:
+      - id_5
+      - id_6
+    - spec: 'literature'
+      name: 'Literature'
+      description: 'Literature Studies'
+      identifiers:
+      - id_7
+      - id_8
+
+The external configuration cannot further refer to an external
+configuration file.
+
+The mapping file syntax is validated on server startup. The file is
+not loaded in-memory, but always read on-demand. Exceptions may occur
+after server startup, if the file is changed after initial syntax
+check.
 
 When the mapping file is defined, the OAI-PMH Repo Handler must be
 configured using configuration option

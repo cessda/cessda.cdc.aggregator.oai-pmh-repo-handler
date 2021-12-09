@@ -1,0 +1,12 @@
+- spec: 'history'
+  name: 'History'
+  description: 'Studies in history'
+  identifiers:
+  - id_5
+  - id_6
+- spec: 'literature'
+  name: 'Literature'
+  description: 'Literature Studies'
+  identifiers:
+  - id_7
+  - id_8
