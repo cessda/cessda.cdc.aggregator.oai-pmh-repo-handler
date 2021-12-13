@@ -1,16 +1,17 @@
 # Indirect
-tornado==6.1
-ConfigArgParse==1.2.3
+tornado==6.1.0
+ConfigArgParse==1.5.3
 py12flogging==0.5.0
 six==1.16.0
 
 # Direct
 Genshi==0.7.5
-PyYAML==5.4.1
+PyYAML==6.0.0
 
 # CDCAGG shared library
-git+https://${BBCREDS}@bitbucket.org/cessda/cessda.cdc.aggregator.shared-library@0.1.0#egg=cdcagg_common
+# TODO change to 0.2.0 once released.
+git+https://${BBCREDS}@bitbucket.org/cessda/cessda.cdc.aggregator.shared-library@995ddcdc0e219fb4660c169a5a1b9afe9f12763f#egg=cdcagg_common
 # Kuha Common
-git+https://bitbucket.org/tietoarkisto/kuha_common@de60495dbf188bd5fd6bb391cc80e9491b409589#egg=kuha_common
+git+https://bitbucket.org/tietoarkisto/kuha_common@8e7de1f16530decc356fee660255b60fcacaea23#egg=kuha_common
 # Kuha OAI-PMH Repo Handler
-git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@e89c58787075e9e79dfb4a31b15d8b1129b1efcf#egg=kuha_oai_pmh_repo_handler
+git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@cbe6d16bbe00369ccddc8a0ae5bcd64f8476755e#egg=kuha_oai_pmh_repo_handler

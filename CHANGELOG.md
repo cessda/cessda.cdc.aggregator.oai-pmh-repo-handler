@@ -37,6 +37,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   `--oai-set-sources-path` defaults to None, which implies that the
   set is discarded (not loaded) on server startup. The operator is in
   charge of creating and configuring the mapping file.
+- Update dependencies in requirements.txt
+
+  - PyYAML 6.0.0
+  - ConfigArgParse 1.5.3
+  - Kuha Common to Git commit 8e7de1f16530decc356fee660255b60fcacaea23
+  - Kuha OAI-PMH Repo Handler to Git commit cbe6d16bbe00369ccddc8a0ae5bcd64f8476755e
+  - TODO CDC Aggregator Shared Library 0.2.0
 
 ### Fixed
 
