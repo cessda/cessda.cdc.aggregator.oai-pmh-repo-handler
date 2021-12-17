@@ -10,7 +10,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Define metadataformats and sets of the OAI-PMH Repo Handler."""
 # Stdlib
 import os
@@ -94,26 +93,28 @@ class ConfigurableAggMDSet(MDFormat.MDSet):
           - id_4
 
     The example is intepreted in following way:
-      * 'thematic' is the top-level setspec node.
-      * The top-level node contains two child nodes: 'social_sciences' and 'humanities'
-      * The set 'thematic:social_sciences' contains two records identied by 'id_1' and 'id_2'.
-      * The set 'thematic:humanities' contains three records identified by 'id_2', 'id_3' and 'id_4'.
-      * The identifier 'id_2' belongs to two sets.
 
-    Features & limitations::
+      * ``thematic`` is the top-level setspec node.
+      * The top-level node contains two child nodes: ``social_sciences`` and ``humanities``
+      * The set ``thematic:social_sciences`` contains two records identied by ``id_1`` and ``id_2``.
+      * The set ``thematic:humanities`` contains three records identified by ``id_2``, ``id_3`` and ``id_4``.
+      * The identifier ``id_2`` belongs to two sets.
 
-      * Supports hierachical set of records with a single top-level node. Example setspec: top_level_node
-      * Only direct child nodes are supported after the top-level node. Example setspec: top_level_node:child_node
-      * The mapping file syntax is checked on configure(), but is not validated in any way. The file may be valid
-        YAML, but not interpreted correctly.
+    Features & limitations:
+
+      * Supports hierachical set of records with a single top-level node. Example setspec: ``top_level_node``
+      * Only direct child nodes are supported after the top-level node. Example setspec: ``top_level_node:child_node``
+      * The mapping file YAML syntax is checked on configure() and mandatory keys are validated. Since it is not loaded
+        to memory, it is possible to modify the file contents while the server is operating. This may lead to
+        errors during runtime.
       * The top-level spec node is used to identify this particular MDSet.
-        For example if the configuration file declares spec: 'first' a request with
-        OAI setspec value first:second implies that the correct MDSet class to consult is this one.
+        For example if the configuration file declares spec: ``first`` a request with
+        OAI setspec value ``first:second`` implies that the correct MDSet class to consult is this one.
 
-    A single node may alternatively specify a `path` key that points
+    A single node may alternatively specify a ``path`` key that points
     to an absolute path of an external configuration of sets. The
-    external configuration must specify `spec`, `name` and
-    `identifiers` keys and may have an optional `description` key. The
+    external configuration must specify ``spec``, ``name`` and
+    ``identifiers`` keys and may have an optional ``description`` key. The
     external configuration file can specify a single node or multiple
     nodes in a list.
 
@@ -153,6 +154,11 @@ class ConfigurableAggMDSet(MDFormat.MDSet):
 
     @classmethod
     def add_cli_args(cls, parser):
+        """Add command line arguments to argument parser.
+
+        :param parser: Argument parser.
+        :type parser: :obj:`configargparse.ArgumentParser`
+        """
         parser.add('--oai-set-configurable-path',
                    help='Path to look for configurable OAI set definitions. '
                    'Leave unset to discard configurable set.',
@@ -189,7 +195,11 @@ class ConfigurableAggMDSet(MDFormat.MDSet):
 
     @classmethod
     def configure(cls, settings):
-        """Load configuration"""
+        """Configure set with loaded settings. Validate mapping file.
+
+        :param settings: Loaded settings.
+        :type settings: :obj:`argparse.Namespace`
+        """
         path = settings.oai_set_configurable_path
         if path is None:
             # Don't load this set.
@@ -292,7 +302,7 @@ class SourceAggMDSet(MDFormat.MDSet):
     to a source value. This file is read once on configure() and kept in-memory for
     the rest of the application run time.
 
-    Mapping file syntax:
+    Mapping file syntax::
 
       -
         url: 'http://archive_1.url/oai'
@@ -312,6 +322,11 @@ class SourceAggMDSet(MDFormat.MDSet):
 
     @classmethod
     def add_cli_args(cls, parser):
+        """Add command line arguments to argument parser.
+
+        :param parser: Argument parser.
+        :type parser: :obj:`configargparse.ArgumentParser`
+        """
         parser.add('--oai-set-sources-path',
                    help='Full path to sources definitions',
                    env_var='OPRH_OS_SOURCES_PATH',
@@ -319,6 +334,11 @@ class SourceAggMDSet(MDFormat.MDSet):
 
     @classmethod
     def configure(cls, settings):
+        """Configure set with loaded settings. Load mapping file to memory.
+
+        :param settings: Loaded settings.
+        :type settings: :obj:`argparse.Namespace`
+        """
         path = settings.oai_set_sources_path
         if path is None:
             # Don't load this set.
@@ -411,6 +431,33 @@ class SourceAggMDSet(MDFormat.MDSet):
 
 
 class AggMetadataFormatBase(MDFormat):
+    """Base class for Aggregator metadataformat definitions.
+
+    Subclass of :class:`kuha_oai_pmh_repo_handler.metadataformats.MDFormat`
+
+    Adds a new template folder, which is relative to this package install location.
+    The folder is added to the list of lookup folders, so Genshi lookup may search
+    for Kuha's templates and Aggregator's templates.
+
+    Overrides parent's :attr:`study_class` with Aggregator's Study record class.
+
+    Overrides parent's :attr:`sets` to keep Kuha's `language` and
+    `openaire_data` OAI sets, and to include Aggregator's
+    :class:`SourceAggMDSet` and :class:`ConfigurableAggMDSet` OAI
+    sets.
+
+    Overrides parent's :meth:`_header_fields` to include
+    :attr:`cdcagg_common.records.Study._aggregator_identifier` and
+    :attr:`cdcagg_common.records.Study._provenance`.
+
+    Overrides parents :meth:`_get_identifier` to use
+    :attr:`cdcagg_common.records.Study._aggregator_identifier` as
+    local OAI-identifier.
+
+    Overrides parents :meth:`_valid_record_filter` to use
+    :attr:`cdcagg_common.records.Study._aggregator_identifier` for
+    record lookup in DocStore query.
+    """
 
     default_template_folders = MDFormat.default_template_folders + [
         os.path.join(os.path.dirname(os.path.realpath(__file__)), TEMPLATE_FOLDER)]
@@ -432,6 +479,12 @@ class AggMetadataFormatBase(MDFormat):
 
 
 class AggDCMetadataFormat(AggMetadataFormatBase):
+    """Define metadataformat for OAI-DC.
+
+    Subclass of :class:`AggMetadataFormatBase`.
+
+    This metadataformat is available using metadataprefix `oai_dc`
+    """
 
     mdprefix = 'oai_dc'
     mdschema = 'http://www.openarchives.org/OAI/2.0/oai_dc.xsd'
@@ -451,6 +504,11 @@ class AggDCMetadataFormat(AggMetadataFormatBase):
 
     @classmethod
     def add_cli_args(cls, parser):
+        """Add command line arguments to argument parser.
+
+        :param parser: Argument parser.
+        :type parser: :obj:`configargparse.ArgumentParser`
+        """
         super().add_cli_args(parser)
         parser.add('--oai-pmh-list-size-oai-dc',
                    help='How many results should a list response contain for '
@@ -461,21 +519,47 @@ class AggDCMetadataFormat(AggMetadataFormatBase):
 
     @classmethod
     def configure(cls, settings):
+        """Configure metadataformat with loaded settings.
+
+        :param settings: Loaded settings.
+        :type settings: :obj:`argparse.Namespace`
+        """
         cls.list_size = settings.oai_pmh_list_size_oai_dc
         super().configure(settings)
 
     @GenPlate('agg_get_record.xml', subtemplate='oai_dc.xml')
     async def get_record(self):
+        """Get OAI-DC record and prepare metadata response.
+
+        Defines a genshi template used in response via GenPlate-decorator.
+
+        :returns: Context used in Genshi XML template.
+        :rtype: dict
+        """
         await self._get_record()
         return await self._metadata_response()
 
     @GenPlate('agg_list_records.xml', subtemplate='oai_dc.xml')
     async def list_records(self):
+        """Get OAI-DC records and prepare metadata response.
+
+        Defines a genshi template used in response serialization via
+        GenPlate-decorator.
+
+        :returns: Context used in Genshi XML template.
+        :rtype: dict
+        """
         await self._list_records()
         return await self._metadata_response()
 
 
 class AggOAIDDI25MetadataFormat(AggMetadataFormatBase):
+    """Define metadataformat for OAI-DDI25.
+
+    Subclass of :class:`AggMetadataFormatBase`.
+
+    This metadataformat is available using metadataprefix `oai_ddi25`
+    """
 
     mdprefix = 'oai_ddi25'
     mdschema = 'http://www.ddialliance.org/Specification/DDI-Codebook/2.5/XMLSchema/codebook.xsd'
@@ -514,6 +598,11 @@ class AggOAIDDI25MetadataFormat(AggMetadataFormatBase):
 
     @classmethod
     def add_cli_args(cls, parser):
+        """Add command line arguments to argument parser.
+
+        :param parser: Argument parser.
+        :type parser: :obj:`configargparse.ArgumentParser`
+        """
         super().add_cli_args(parser)
         parser.add('--oai-pmh-list-size-oai-ddi25',
                    help='How many results should a list response contain for '
@@ -524,24 +613,56 @@ class AggOAIDDI25MetadataFormat(AggMetadataFormatBase):
 
     @classmethod
     def configure(cls, settings):
+        """Configure metadataformat with loaded settings.
+
+        :param settings: Loaded settings.
+        :type settings: :obj:`argparse.Namespace`
+        """
         cls.list_size = settings.oai_pmh_list_size_oai_ddi25
         super().configure(settings)
 
     async def _on_record(self, study):
+        """Override _on_record to include iter_relpubls helper
+        function in template contexts for each record.
+
+        :param study: Study record
+        :type study: :obj:`cdcagg_common.records.Study`
+        """
         await super()._on_record(study, iter_relpubls=DDICMetadataFormat.iter_relpubls)
 
     @GenPlate('agg_get_record.xml', subtemplate='oai_ddi25.xml')
     async def get_record(self):
+        """Get OAI-DDI25 record and prepare metadata response.
+
+        Defines a genshi template used in response via GenPlate-decorator.
+
+        :returns: Context used in Genshi XML template.
+        :rtype: dict
+        """
         await super()._get_record()
         return await super()._metadata_response()
 
     @GenPlate('agg_list_records.xml', subtemplate='oai_ddi25.xml')
     async def list_records(self):
+        """Get OAI-DDI25 records and prepare metadata response.
+
+        Defines a genshi template used in response serialization via
+        GenPlate-decorator.
+
+        :returns: Context used in Genshi XML template.
+        :rtype: dict
+        """
         await super()._list_records()
         return await super()._metadata_response()
 
 
 class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
+    """Define metadataformat for OAI-Datacite.
+
+    Subclass of :class:`AggMetadataFormatBase`.
+
+    This metadataformat is available using metadataprefix `oai_datacite`
+    """
 
     mdprefix = 'oai_datacite'
     mdschema = 'http://schema.datacite.org/meta/kernel-3/metadata.xsd'
@@ -562,6 +683,11 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
 
     @classmethod
     def add_cli_args(cls, parser):
+        """Add command line arguments to argument parser.
+
+        :param parser: Argument parser.
+        :type parser: :obj:`configargparse.ArgumentParser`
+        """
         super().add_cli_args(parser)
         parser.add('--oai-pmh-list-size-oai-datacite',
                    help='How many results should a list response contain for '
@@ -572,10 +698,27 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
 
     @classmethod
     def configure(cls, settings):
+        """Configure metadataformat with loaded settings.
+
+        :param settings: Loaded settings.
+        :type settings: :obj:`argparse.Namespace`
+        """
         cls.list_size = settings.oai_pmh_list_size_oai_datacite
         super().configure(settings)
 
     async def _on_record(self, study):
+        """Override _on_record to make additional checks before adding
+        the record to response.
+
+        OAI-Datacite requires that a record has a certain type of identifier.
+        This function will drop records that do not have such identifier type.
+
+        Also makes sure that the publication year is actually a year
+        with four digits.
+
+        :param study: Study record
+        :type study: :obj:`cdcagg_common.records.Study`
+        """
         preferred_id = await OAIDataciteMetadataFormat.get_preferred_identifier(study)
         if preferred_id != ():
             # Only add records that have some valid id.
@@ -589,15 +732,38 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
 
     @GenPlate('agg_get_record.xml', subtemplate='oai_datacite.xml')
     async def get_record(self):
+        """Get OAI-Datacite record and prepare metadata response.
+
+        Defines a genshi template used in response via GenPlate-decorator.
+
+        :returns: Context used in Genshi XML template.
+        :rtype: dict
+        """
         await super()._get_record()
         return await super()._metadata_response()
 
     @GenPlate('agg_list_records.xml', subtemplate='oai_datacite.xml')
     async def list_records(self):
+        """Get OAI-Datacite records and prepare metadata response.
+
+        Defines a genshi template used in response serialization via
+        GenPlate-decorator.
+
+        :returns: Context used in Genshi XML template.
+        :rtype: dict
+        """
         await super()._list_records()
         return await super()._metadata_response()
 
     async def _valid_records_filter(self):
+        """Override _valid_records_filter to add filtering for certain types of identifiers.
+
+        This makes sure that records that do not have a valid OpenAIRE
+        ID type are not included in list responses.
+
+        :returns: Filter for valid records.
+        :rtype: dict
+        """
         _filter = await super()._valid_records_filter()
         _filter.update({
             self.study_class.identifiers.attr_agency: {

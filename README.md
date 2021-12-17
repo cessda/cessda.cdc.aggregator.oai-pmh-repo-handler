@@ -1,4 +1,4 @@
-# CESSDA CDC Aggregator - OAI-PMH Repo Handler #
+# CESSDA Metadata Aggregator - OAI-PMH Repo Handler #
 
 [![Build Status](https://jenkins.cessda.eu/buildStatus/icon?job=cessda.cdc.aggregator.oai-pmh-repo-handler%2Fmaster)](https://jenkins.cessda.eu/job/cessda.cdc.aggregator.oai-pmh-repo-handler/job/master/)
 [![Bugs](https://sonarqube.cessda.eu/api/project_badges/measure?project=cessda.cdc.aggregator.oai-pmh-repo-handler&metric=bugs)](https://sonarqube.cessda.eu/dashboard?id=cessda.cdc.aggregator.oai-pmh-repo-handler)
@@ -14,25 +14,104 @@
 [![Vulnerabilities](https://sonarqube.cessda.eu/api/project_badges/measure?project=cessda.cdc.aggregator.oai-pmh-repo-handler&metric=vulnerabilities)](https://sonarqube.cessda.eu/dashboard?id=cessda.cdc.aggregator.oai-pmh-repo-handler)
 
 HTTP server providing an OAI-PMH aggregator endpoint serving DocStore
-records. This program is part of CESSDA CDC Aggregator.
+records. This program is part of CESSDA Metadata Aggregator.
+
+Source code is hosted at Bitbucket [https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler).
+
+## Features ##
+
+The OAI-PMH Repo Handler implements an OAI-PMH Aggregator service. The
+aggregator provides an OAI-PMH endpoint which enables tracing of
+record origin using OAI-PMH provenance containers. The OAI-PMH
+specification is publicly available at
+[http://www.openarchives.org/OAI/2.0/openarchivesprotocol.htm](http://www.openarchives.org/OAI/2.0/openarchivesprotocol.htm)
+and provenance containers are described at
+[http://www.openarchives.org/OAI/2.0/guidelines-provenance.htm](http://www.openarchives.org/OAI/2.0/guidelines-provenance.htm).
+The aggregator adheres to the implementation Guidelines for Aggregators,
+Caches and Proxies, which is available at
+[http://www.openarchives.org/OAI/2.0/guidelines-aggregator.htm](http://www.openarchives.org/OAI/2.0/guidelines-aggregator.htm).
+
+The aggregator implements the following OAI-PMH features:
+
+  - All six OAI-PMH verbs of OAI-PMH protocol 2.0.
+  - ResumptionTokens to partition large list responses.
+  - Selective harvesting via OAI-sets and datestamps.
+  - Configurable support for deleted records.
+  - Configurable support for OAI-identifiers.
+  - Configurable support for arbitrary OAI-sets.
+  - Built-in OAI set for grouping by study language.
+  - Built-in OAI set for grouping by OpenAIRE data.
+
+The following metadata formats are supported:
+
+  - OAI-DC using metadataprefix ``oai_dc``.
+  - DDI 2.5 using metadataprefix ``oai_ddi25``.
+  - OpenAIRE Datacite using metadataprefix ``oai_datacite``.
+
+
+## Requirements ##
+
+  - Python 3.6 or newer.
+  - Running CESSDA Metadata Aggregator DocStore instance.
 
 
 ## Installation ##
 
+On Ubuntu 20.04
+
+
+### Get Package ###
+
+Clone the repository using Git.
+
+```sh
+git clone https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler.git
+```
+
+Or fetch a specific release using a tag. For example to get 0.2.0 release.
+
+```sh
+git clone --branch 0.2.0 https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler.git
+```
+
+
+### Install OAI-PMH Repo Handler ###
+
+It is recommended to install packages inside Python virtual
+environment to isolate the install. This package also provides a
+Dockerfile to help setup a containerized environment.
+
+Create the Python virtual environment and activate it.
+
 ```sh
 python3 -m venv cdcagg-env
 source cdcagg-env/bin/activate
+```
+
+Install Python packages.
+
+```sh
 cd cessda.cdc.aggregator.oai-pmh-repo-handler
 pip install -r requirements.txt
 pip install .
 ```
 
+To upgrade existing install, use ``--upgrade`` flag in pip commands. Pip
+uses ``only-if-needed`` upgrade strategy by default since version
+10.0.0, but for backwards compatibility the option is also included in
+the example.
+
+```sh
+pip install --upgrade -r requirements.txt --upgrade-strategy=only-if-needed
+pip install . --upgrade --upgrade-strategy=only-if-needed
+```
+
 
 ## Run ##
 
-Replace <docstore-url> with an URL pointing to a DocStore
-server. Replace <base-url> with your endpoint OAI-PMH Base
-URL. Replace <admin-email> with administrator email address.
+Replace ``<docstore-url>`` with an URL pointing to a DocStore
+server. Replace ``<base-url>`` with your endpoint OAI-PMH Base
+URL. Replace ``<admin-email>`` with administrator email address.
 
 ```sh
 python -m cdcagg_oai --document-store-url <docstore-url> --oai-pmh-base-url <base-url> --oai-pmh-admin-email <admin-email>

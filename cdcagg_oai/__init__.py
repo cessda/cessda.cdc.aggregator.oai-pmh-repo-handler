@@ -10,3 +10,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""This package implements the CESSDA Metadata Aggregator OAI-PMH Repo
+Handler.
+
+It relies heavily on Kuha OAI-PMH Repo Handler interfaces, but defines
+it's own metadataformats and OAI-sets.
+
+New metadataformats can be built as plugins by registering them for
+discovery via entrypoints. The entrypoints are loaded in :mod:`cdcagg_oai.serve`.
+
+.. Note::
+
+   For information on entrypoint discovery see
+   https://packaging.python.org/en/latest/guides/creating-and-discovering-plugins/#using-package-metadata
+"""

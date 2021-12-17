@@ -10,7 +10,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Entrypoint to start serving the OAI-PMH Repo Handler.
 
+Handle command line arguments, application setup, discovery & load of plugins,
+server startup and critical exception logging.
+"""
 import logging
 from py12flogging.log_formatter import (
     set_ctx_populator,
@@ -33,6 +37,16 @@ _logger = logging.getLogger(__name__)
 
 
 def configure(mdformats):
+    """Configure application.
+
+    Define configuration options. Load settings.
+    Configure metadataformats. Setup logging.
+    Return loaded settings.
+
+    :param list mdformats: Loaded metadataformats.
+    :returns: Loaded settings.
+    :rtype: :obj:`argparse.Namespace`
+    """
     conf.load(prog='cdcagg_oai', package='cdcagg_oai', env_var_prefix='CDCAGG_')
     conf.add('--api-version', help='API version is prepended to URLs',
              default='v0', type=str, env_var='OAIPMH_API_VERSION')
@@ -54,6 +68,13 @@ def configure(mdformats):
 
 
 def main():
+    """Starts the server.
+
+    Load metadataformats using entrypoint discovery group
+    `cdcagg.oai.metadataformats`. Call :func:`configure` to
+    define, load and setup configurations. Initiate controller
+    and start server.
+    """
     mdformats = load_metadataformats('cdcagg.oai.metadataformats')
     settings = configure(mdformats)
     if settings.print_configuration:
@@ -63,14 +84,14 @@ def main():
     try:
         ctrl = controller.from_settings(settings, mdformats)
         app = http_api.get_app(settings.api_version, controller=ctrl)
-    except:
+    except Exception:
         _logger.exception('Exception in application setup')
         raise
     try:
         server.serve(app, settings.port)
     except KeyboardInterrupt:
         _logger.warning('Shutdown by CTRL + C', exc_info=True)
-    except:
+    except Exception:
         _logger.exception('Unhandled exception in main()')
         raise
     finally:
