@@ -9,8 +9,7 @@ Genshi==0.7.5
 PyYAML==6.0.0
 
 # CDCAGG shared library
-# TODO change to 0.2.0 once released.
-git+https://${BBCREDS}@bitbucket.org/cessda/cessda.cdc.aggregator.shared-library@995ddcdc0e219fb4660c169a5a1b9afe9f12763f#egg=cdcagg_common
+git+https://bitbucket.org/cessda/cessda.cdc.aggregator.shared-library@0.2.0#egg=cdcagg_common
 # Kuha Common
 git+https://bitbucket.org/tietoarkisto/kuha_common@8e7de1f16530decc356fee660255b60fcacaea23#egg=kuha_common
 # Kuha OAI-PMH Repo Handler

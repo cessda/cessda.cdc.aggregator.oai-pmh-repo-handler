@@ -4,7 +4,9 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## 0.2.0 - unreleased
+
+## 0.2.0 - 2021-12-17
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5779937.svg)](https://doi.org/10.5281/zenodo.5779937)
 
 ### Added
 
@@ -28,7 +30,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   - ConfigArgParse 1.5.3
   - Kuha Common to Git commit 8e7de1f16530decc356fee660255b60fcacaea23
   - Kuha OAI-PMH Repo Handler to Git commit cbe6d16bbe00369ccddc8a0ae5bcd64f8476755e
-  - TODO CDC Aggregator Shared Library 0.2.0
+  - CDC Aggregator Shared Library 0.2.0
 
 ### Fixed
 
