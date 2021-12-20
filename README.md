@@ -51,7 +51,7 @@ The following metadata formats are supported:
 
 ## Requirements ##
 
-  - Python 3.6 or newer.
+  - Python 3.8 or newer.
   - Running CESSDA Metadata Aggregator DocStore instance.
 
 
