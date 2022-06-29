@@ -5,6 +5,28 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## 0.2.1 - 2022-06-29
+
+### Changed
+
+- Require Aggregator Shared Library 0.3.0 in requirements.txt.
+- Require Kuha Common 1.0.0 in requirements.txt.
+- Require Kuha OAI-PMH Repo Handler 1.0.1 in requirements.txt.
+
+### Fixed
+
+- Include missing fields to oai_ddi25 metadata: (Fixes
+  [#26](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/26))
+    - /codeBook/docDscr/citation/titlStmt/titl
+    - /codeBook/stdyDscr/citation/holdings/@URI
+    - /codeBook/stdyDscr/stdyInfo/sumDscr/dataKind
+
+- Render subject in oai_dc metadata regardless if the study.keyword
+  does not have a value. (Fixes
+  [#27](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/27))
+
+
+
 ## 0.2.0 - 2021-12-17
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5779937.svg)](https://doi.org/10.5281/zenodo.5779937)
 
@@ -25,12 +47,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   set is discarded (not loaded) on server startup. The operator is in
   charge of creating and configuring the mapping file.
 - Update dependencies in requirements.txt
-
-  - PyYAML 6.0.0
-  - ConfigArgParse 1.5.3
-  - Kuha Common to Git commit 8e7de1f16530decc356fee660255b60fcacaea23
-  - Kuha OAI-PMH Repo Handler to Git commit cbe6d16bbe00369ccddc8a0ae5bcd64f8476755e
-  - CDC Aggregator Shared Library 0.2.0
+    - PyYAML 6.0.0
+    - ConfigArgParse 1.5.3
+    - Kuha Common to Git commit 8e7de1f16530decc356fee660255b60fcacaea23
+    - Kuha OAI-PMH Repo Handler to Git commit cbe6d16bbe00369ccddc8a0ae5bcd64f8476755e
+    - CDC Aggregator Shared Library 0.2.0
 
 ### Fixed
 

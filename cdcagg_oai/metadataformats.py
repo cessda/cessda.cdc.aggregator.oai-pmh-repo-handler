@@ -568,6 +568,9 @@ class AggOAIDDI25MetadataFormat(AggMetadataFormatBase):
     @property
     def _record_fields(self):
         return [self.study_class.identifiers,
+                self.study_class.document_titles,
+                self.study_class.data_kinds,
+                self.study_class.study_uris,
                 self.study_class.publishers,
                 self.study_class.document_uris,
                 self.study_class.distributors,

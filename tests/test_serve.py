@@ -226,6 +226,7 @@ class TestHTTPResponses(_Base):
     def test_GET_getrecord_returns_correct_oai_header(self):
         study = Study()
         study.add_study_number('study_id')
+        study._aggregator_identifier.add_value('some_agg_id_1')
         study._provenance.add_value('2020-01-01T23:00.00Z', altered=True, base_url='some.base',
                                     identifier='some:identifier', datestamp='1999-01-01',
                                     direct=True, metadata_namespace='somenamespace')
@@ -253,6 +254,7 @@ class TestHTTPResponses(_Base):
     def test_GET_getrecord_returns_correct_provenance_info(self):
         study = Study()
         study.add_study_number('study_id')
+        study._aggregator_identifier.add_value('some_agg_id_1')
         study._provenance.add_value('2020-01-01T23:00.00Z', altered=True, base_url='some.base',
                                     identifier='some:identifier', datestamp='1999-01-01',
                                     direct=True, metadata_namespace='somenamespace')
@@ -292,6 +294,7 @@ class TestHTTPResponses(_Base):
             with self.subTest(metadata_prefix=mdprefix):
                 study = Study()
                 study.add_study_number('someid')
+                study._aggregator_identifier.add_value('some_agg_id_1')
                 study._metadata.attr_status.set_value(REC_STATUS_DELETED)
                 study.set_deleted('2000-01-01T23:00:00Z')
                 if mdprefix == 'oai_datacite':
@@ -317,6 +320,7 @@ class TestHTTPResponses(_Base):
             with self.subTest(metadata_prefix=mdprefix):
                 study = Study()
                 study.add_study_number('someid')
+                study._aggregator_identifier.add_value('some_agg_id_1')
                 study._provenance.add_value('someharvestdate', altered=True,
                                             base_url='http://services.fsd.tuni.fi/v0/oai',
                                             identifier='someidentifier', datestamp='somedatestamp',
@@ -359,6 +363,75 @@ class TestHTTPResponses(_Base):
                 self.assertEqual(len(set_els), len(exp_sets))
                 for set_el in set_els:
                     self.assertIn(''.join(set_el.itertext()), exp_sets)
+
+    def test_GET_getrecord_oai_ddi25_returns_stdyDscr_holdings_uri(self):
+        study = Study()
+        study.add_study_number('some_number')
+        study._aggregator_identifier.add_value('agg_id_1')
+        study.add_study_uris('some_study_uri', language='fi')
+        study.add_study_uris('another_study_uri', language='en')
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_ddi25',
+                                                      identifier='someid'))
+        expected = {'fi': 'some_study_uri',
+                    'en': 'another_study_uri'}
+        xmlns = dict(**XMLNS, **{'ddi': 'ddi:codebook:2_5', 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        for holdings_el in resp_el.findall('./oai:GetRecord/oai:record/oai:metadata/ddi:codeBook/ddi:stdyDscr/'
+                                           'ddi:citation/ddi:holdings', xmlns):
+            lang = holdings_el.get('{%s}lang' % (xmlns['xml'],))
+            exp_uri = expected.pop(lang)
+            self.assertEqual(holdings_el.get('URI'), exp_uri)
+        self.assertEqual(expected, {})
+
+    def test_GET_getrecord_oai_ddi25_returns_document_titles(self):
+        study = Study()
+        study.add_study_number('some_number')
+        study._aggregator_identifier.add_value('agg_id_1')
+        study.add_document_titles('some_doc', language='en')
+        study.add_document_titles('joku_doc', language='fi')
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_ddi25',
+                                                      identifier='someid'))
+        expected = {'fi': 'joku_doc',
+                    'en': 'some_doc'}
+        xmlns = dict(**XMLNS, **{'ddi': 'ddi:codebook:2_5', 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        for doc_titl_el in resp_el.findall('./oai:GetRecord/oai:record/oai:metadata/ddi:codeBook/ddi:docDscr/'
+                                           'ddi:citation/ddi:titlStmt/ddi:titl', xmlns):
+            lang = doc_titl_el.get('{%s}lang' % (xmlns['xml'],))
+            exp_title = expected.pop(lang)
+            self.assertEqual(''.join(doc_titl_el.itertext()), exp_title)
+        self.assertEqual(expected, {})
+
+    def test_GET_getrecord_oai_ddi25_returns_data_kinds(self):
+        study = Study()
+        study.add_study_number('some_number')
+        study._aggregator_identifier.add_value('agg_id_1')
+        study.add_data_kinds('some kind', 'en')
+        study.add_data_kinds('joku kind', 'fi')
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_ddi25',
+                                                      identifier='someid'))
+        expected = {'fi': 'joku kind',
+                    'en': 'some kind'}
+        xmlns = dict(**XMLNS, **{'ddi': 'ddi:codebook:2_5', 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        for doc_titl_el in resp_el.findall('./oai:GetRecord/oai:record/oai:metadata/ddi:codeBook/ddi:stdyDscr/'
+                                           'ddi:stdyInfo/ddi:sumDscr/ddi:dataKind', xmlns):
+            lang = doc_titl_el.get('{%s}lang' % (xmlns['xml'],))
+            exp_title = expected.pop(lang)
+            self.assertEqual(''.join(doc_titl_el.itertext()), exp_title)
+        self.assertEqual(expected, {})
 
     # LISTSETS
 
@@ -542,6 +615,49 @@ class TestQueries(_Base):
         self._listrecords_with_set('thematic',
                                    exp_filter,
                                    assert_func=self._assert_filter_for_configurable)
+
+    def test_GET_getrecord_oai_ddi25_includes_fields(self):
+        self.fetch(OAI_URL + '?verb=GetRecord&metadataPrefix=oai_ddi25&identifier=someid')
+        calls = self._mock_fetch.call_args_list
+        self.assertEqual(len(calls), 1)
+        cargs, ckwargs = calls[0]
+        self.assertCountEqual(cargs[2]['fields'], [
+            'data_kinds',
+            'document_titles',
+            'study_uris',
+            'parallel_study_titles',
+            'citation_requirements',
+            'principal_investigators',
+            'study_area_countries',
+            'collection_modes',
+            'keywords',
+            '_aggregator_identifier',
+            'study_number',
+            '_provenance',
+            'deposit_requirements',
+            'publishers',
+            'geographic_coverages',
+            'publication_dates',
+            'copyrights',
+            'file_names',
+            'identifiers',
+            'analysis_units',
+            'time_methods',
+            'universes',
+            'publication_years',
+            'distributors',
+            'data_collection_copyrights',
+            'instruments',
+            'study_titles',
+            '_metadata',
+            'data_access',
+            'abstracts',
+            'collection_periods',
+            'related_publications',
+            'document_uris',
+            'sampling_procedures',
+            'data_access_descriptions',
+            'classifications'])
 
 
 class TestConfigurations(_Base):
