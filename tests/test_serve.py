@@ -433,6 +433,98 @@ class TestHTTPResponses(_Base):
             self.assertEqual(''.join(doc_titl_el.itertext()), exp_title)
         self.assertEqual(expected, {})
 
+    def test_GET_getrecord_oai_datacite_returns_publisher(self):
+        """Make sure #31 at BitBucket is fixed
+
+        Publisher should render study.distributors as primary source
+        and prefer english.
+        """
+        study = Study()
+        study.add_study_number('some_number')
+        study.add_identifiers('some_id', 'en', agency='DOI')
+        study._aggregator_identifier.add_value('agg_id_1')
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        # These two should not render.
+        study.add_distributors('jakelija', 'fi')
+        study.add_publishers('publisher', 'en')
+        # This should render.
+        study.add_distributors('distributor', 'en')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
+                                 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        publisher_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                        '/datacite:resource/datacite:publisher',
+                                        xmlns)
+        self.assertEqual(len(publisher_els), 1)
+        self.assertEqual(''.join(publisher_els.pop().itertext()),
+                         'distributor')
+
+    def test_GET_getrecord_oai_datacite_returns_publicationyear(self):
+        """Make sure #30 at BitBucket is fixed
+
+        Format the value of publicationYear to only hold year.
+        Change the primary lookup from study.publication_years.value to
+        study.publication_years.attr_distribution_date.value.
+        """
+        study = Study()
+        study.add_study_number('some_number')
+        study.add_identifiers('some_id', 'en', agency='DOI')
+        study._aggregator_identifier.add_value('agg_id_1')
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        study.add_publication_years('1800', 'en', distribution_date='2002-01-02')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
+                                 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        publication_year_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                               '/datacite:resource/datacite:publicationYear',
+                                               xmlns)
+        self.assertEqual(len(publication_year_els), 1)
+        self.assertEqual(''.join(publication_year_els.pop().itertext()),
+                         '2002')
+
+    def test_GET_getrecord_oai_datacite_returns_dates(self):
+        """Make sure #29 at BitBucket is fixed.
+
+        Include property Date in oai_datacite. Use
+        study.publication_years.attr_distribution_date.value
+        """
+        study = Study()
+        study.add_study_number('some_number')
+        study.add_identifiers('some_id', 'en', agency='DOI')
+        study._aggregator_identifier.add_value('agg_id_1')
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        study.add_publication_years('1900', 'en', distribution_date='2002-01-02')
+        study.add_publication_years('1800', 'fi', distribution_date='2003-03-04')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
+                                 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        date_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata/datacite:resource'
+                                   '/datacite:dates/datacite:date', xmlns)
+        self.assertEqual(len(date_els), 2)
+        expected = {'2002-01-02': 'en',
+                    '2003-03-04': 'fi'}
+        for date_el in date_els:
+            val = ''.join(date_el.itertext())
+            self.assertIn(val, expected)
+            exp_lang = expected.pop(val)
+            self.assertEqual(exp_lang, date_el.get('{%s}lang' % xmlns['xml']))
+        self.assertEqual(expected, {})
+
     # LISTSETS
 
     def test_GET_listsets_returns_correct_sets(self):
@@ -658,6 +750,29 @@ class TestQueries(_Base):
             'sampling_procedures',
             'data_access_descriptions',
             'classifications'])
+
+    def test_GET_getrecord_oai_datacite_includes_fields(self):
+        self.fetch(OAI_URL + '?verb=GetRecord&metadataPrefix=oai_datacite&identifier=someid')
+        calls = self._mock_fetch.call_args_list
+        self.assertEqual(len(calls), 1)
+        cargs, ckwargs = calls[0]
+        self.assertCountEqual(cargs[2]['fields'], [
+            'study_titles',
+            'classifications',
+            'geographic_coverages',
+            'identifiers',
+            '_metadata',
+            'keywords',
+            '_aggregator_identifier',
+            'abstracts',
+            'study_number',
+            '_provenance',
+            'data_access',
+            'publication_years',
+            'distributors',
+            'publishers',
+            'principal_investigators'
+        ])
 
 
 class TestConfigurations(_Base):

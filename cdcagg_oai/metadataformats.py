@@ -675,6 +675,7 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
     def _record_fields(self):
         return [self.study_class.identifiers,
                 self.study_class.principal_investigators,
+                self.study_class.distributors,
                 self.study_class.publishers,
                 self.study_class.publication_years,
                 self.study_class.keywords,
@@ -730,8 +731,10 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
             # however, ListRecords & ListIdentifiers should use _valid_records_filter() to
             # make sure this will never happen.
             publication_year = await OAIDataciteMetadataFormat.get_publication_year(study)
+            publisher = await OAIDataciteMetadataFormat.get_publisher_lang_value_pair(study)
             await super()._on_record(study, preferred_identifier=preferred_id,
-                                     publication_year=publication_year)
+                                     publication_year=publication_year,
+                                     publisher_lang_val=publisher)
 
     @GenPlate('agg_get_record.xml', subtemplate='oai_datacite.xml')
     async def get_record(self):
