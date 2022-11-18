@@ -247,7 +247,7 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
             settings = Namespace(oai_set_configurable_path=somefile.name)
             metadataformats.ConfigurableAggMDSet.configure(settings)
             conf_agg_set = metadataformats.ConfigurableAggMDSet('metadataformat')
-        self._loop.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
+        self.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
         expected = [{'description': 'Studies in social sciences',
                      'identifiers': ['id_1', 'id_2'],
                      'name': 'Social sciences',
@@ -267,7 +267,7 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
             settings = Namespace(oai_set_configurable_path=somefile.name)
             metadataformats.ConfigurableAggMDSet.configure(settings)
             conf_agg_set = metadataformats.ConfigurableAggMDSet('metadataformat')
-        self._loop.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
+        self.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
         expected = [{'description': 'Studies in social sciences',
                      'identifiers': ['id_1', 'id_2'],
                      'name': 'Social sciences',
@@ -340,7 +340,7 @@ class TestSourceAggMDSetWithYAMLFile(KuhaUnitTestCase):
         study._provenance.add_value('someharvestdate', altered=True, base_url='http://some.url',
                                     identifier='someidentifier', datestamp='somedatestamp',
                                     direct=True, metadata_namespace='somenamespace')
-        self._loop.run_until_complete(self.await_and_store_result(source_set.get(study)))
+        self.run_until_complete(self.await_and_store_result(source_set.get(study)))
         self.assertEqual(self._stored_result, ['some source'])
 
     def test_get_returns_empty_list_if_no_source_found(self):
@@ -350,7 +350,7 @@ class TestSourceAggMDSetWithYAMLFile(KuhaUnitTestCase):
         study._provenance.add_value('someharvestdate', altered=True, base_url='http://yetanother.url',
                                     identifier='someidentifier', datestamp='somedatestamp',
                                     direct=True, metadata_namespace='somenamespace')
-        self._loop.run_until_complete(self.await_and_store_result(source_set.get(study)))
+        self.run_until_complete(self.await_and_store_result(source_set.get(study)))
         self.assertEqual(self._stored_result, [])
 
     def test_query_calls_param(self):
@@ -363,7 +363,7 @@ class TestSourceAggMDSetWithYAMLFile(KuhaUnitTestCase):
         source_set = metadataformats.SourceAggMDSet(mock_mdformat)
         mock_on_set_cb = mock.Mock(side_effect=mock_coro())
         # Call
-        self._loop.run_until_complete(self.await_and_store_result(source_set.query(mock_on_set_cb)))
+        self.run_until_complete(self.await_and_store_result(source_set.query(mock_on_set_cb)))
         # Assert
         exp_calls = {'source': {'name': 'Source archive'},
                      'source:some source': {'name': 'some source name',

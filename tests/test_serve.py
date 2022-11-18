@@ -749,7 +749,9 @@ class TestQueries(_Base):
             'document_uris',
             'sampling_procedures',
             'data_access_descriptions',
-            'classifications'])
+            'classifications',
+            'funding_agencies',
+            'grant_numbers'])
 
     def test_GET_getrecord_oai_datacite_includes_fields(self):
         self.fetch(OAI_URL + '?verb=GetRecord&metadataPrefix=oai_datacite&identifier=someid')
@@ -771,7 +773,9 @@ class TestQueries(_Base):
             'publication_years',
             'distributors',
             'publishers',
-            'principal_investigators'
+            'principal_investigators',
+            'grant_numbers',
+            'related_publications'
         ])
 
 

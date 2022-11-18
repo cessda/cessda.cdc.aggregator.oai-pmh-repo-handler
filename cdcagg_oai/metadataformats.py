@@ -597,7 +597,9 @@ class AggOAIDDI25MetadataFormat(AggMetadataFormatBase):
                 self.study_class.deposit_requirements,
                 self.study_class.geographic_coverages,
                 self.study_class.instruments,
-                self.study_class.related_publications]
+                self.study_class.grant_numbers,
+                self.study_class.related_publications,
+                self.study_class.funding_agencies]
 
     @classmethod
     def add_cli_args(cls, parser):
@@ -683,7 +685,9 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
                 self.study_class.data_access,
                 self.study_class.abstract,
                 self.study_class.geographic_coverages,
-                self.study_class.study_titles]
+                self.study_class.study_titles,
+                self.study_class.related_publications,
+                self.study_class.grant_numbers]
 
     @classmethod
     def add_cli_args(cls, parser):
@@ -732,9 +736,13 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
             # make sure this will never happen.
             publication_year = await OAIDataciteMetadataFormat.get_publication_year(study)
             publisher = await OAIDataciteMetadataFormat.get_publisher_lang_value_pair(study)
+            related_identifier_types_ids = await OAIDataciteMetadataFormat.get_related_identifiers_types(study)
+            funders = await OAIDataciteMetadataFormat.get_funders(study)
             await super()._on_record(study, preferred_identifier=preferred_id,
                                      publication_year=publication_year,
-                                     publisher_lang_val=publisher)
+                                     publisher_lang_val=publisher,
+                                     related_identifier_types_ids=related_identifier_types_ids,
+                                     funders=funders)
 
     @GenPlate('agg_get_record.xml', subtemplate='oai_datacite.xml')
     async def get_record(self):

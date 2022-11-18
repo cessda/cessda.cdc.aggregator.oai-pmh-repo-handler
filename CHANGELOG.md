@@ -5,14 +5,29 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## TBD - unreleased
+## 0.3.0 - unreleased
+
+### Added
+
+- Grant & funding information to `oai_datacite` and `oai_ddi25`
+  metadata. (Implements
+  [#34](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/34))
+- Related publication identifiers and agencies to `oai_datacite` and
+  `oai_ddi25` metadata. (Implements
+  [#34](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/34))
 
 ### Changed
 
-- Require Kuha OAI-PMH Repo Handler 1.0.2 in requirements.txt.
 - Add primary lookup to `oai_datacite` Publisher from
   Study.distributors. The current lookup from Study.publishers will
   remain as a secondary source. (Fixes [#31](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/31))
+- Update dependencies:
+
+  - Require Aggregator Shared Library 0.5.0 in requirements.txt and setup.py.
+  - Require Kuha OAI-PMH Repo Handler 1.1.0 in requirements.txt and setup.py.
+  - Require Kuha Common 2.0.0 in requirements.txt and setup.py.
+  - Require Tornado 6.2.0 in requirements.txt.
+  - Require Genshi 0.7.7 in requirements.txt.
 
 ### Fixed
 

@@ -32,12 +32,9 @@ node(node_label) {
     // prepare workspace
     def myworkspace = ''
 
-    // Parallelism causes stages to be run in different workspaces.
-    // Before submitting to SonarQube we need to make sure pylint_report
-    // coverage.xml and sonar-project.properties files are in-place.
-    // tasks shall be run in parallel
     def tasks_1 = [:]
     def tasks_2 = [:]
+    def tasks_3 = [:]
 
     myworkspace = "${WORKSPACE}"
     echo "My workspace is ${myworkspace}"
@@ -153,10 +150,39 @@ node(node_label) {
             }
         }
     }
+    tasks_3['Run Tests py310'] = {
+        docker.image('python:3.10').inside({
+            stage('Prepare Tox Venv') {
+                if (!fileExists(toxEnvName)) {
+                    echo 'Build Python Virtualenv for testing...'
+                    sh """
+                    python -m venv ${toxEnvName}
+                    . ./${toxEnvName}/bin/activate
+                    pip install --upgrade pip
+                    pip install tox
+                    """
+                }
+            }
+            stage('Run Tests') {
+                withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
+                    sh """
+                    . ./${toxEnvName}/bin/activate
+                    tox -e py310
+                    """
+                }
+            }
+            stage('Clean up tox-env') {
+                if (fileExists(toxEnvName)) {
+                    sh "rm -r ${toxEnvName}"
+                }
+            }
+        })
+    }
     try {
         // run parallel tasks
         parallel tasks_1
         parallel tasks_2
+        parallel tasks_3
         stage('Build docker image') {
             withEnv(['DOCKER_BUILDKIT=1']) {
                 withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
