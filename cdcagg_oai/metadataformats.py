@@ -744,7 +744,7 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
                                      related_identifier_types_ids=related_identifier_types_ids,
                                      funders=funders)
 
-    @GenPlate('agg_get_record.xml', subtemplate='oai_datacite.xml')
+    @GenPlate('agg_get_record.xml', subtemplate='agg_oai_datacite.xml')
     async def get_record(self):
         """Get OAI-Datacite record and prepare metadata response.
 
@@ -756,7 +756,7 @@ class AggOAIDataciteMetadataFormat(AggMetadataFormatBase):
         await super()._get_record()
         return await super()._metadata_response()
 
-    @GenPlate('agg_list_records.xml', subtemplate='oai_datacite.xml')
+    @GenPlate('agg_list_records.xml', subtemplate='agg_oai_datacite.xml')
     async def list_records(self):
         """Get OAI-Datacite records and prepare metadata response.
 

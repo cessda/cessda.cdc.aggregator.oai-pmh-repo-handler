@@ -43,7 +43,27 @@ API_VERSION = 'v0'
 OAI_URL = '/' + API_VERSION + '/oai'
 XMLNS = {'oai': 'http://www.openarchives.org/OAI/2.0/',
          'oai_p': 'http://www.openarchives.org/OAI/2.0/provenance'}
+THE_XMLNS = 'http://www.w3.org/XML/1998/namespace'
 MD_PREFIXES = ('oai_dc', 'oai_ddi25', 'oai_datacite')
+XML_LANG_ATT = '{%s}lang' % (THE_XMLNS,)
+DATACITE_XMLNS = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
+                                  'xml': THE_XMLNS})
+
+
+def _get_xmllang(element):
+    return element.get(XML_LANG_ATT)
+
+
+def _study_for_datacite():
+    study = Study()
+    study.add_study_number('some_number')
+    study.add_identifiers('some_id', 'en', agency='DOI')
+    study._aggregator_identifier.add_value('agg_id_1')
+    study._provenance.add_value('someharvestdate', altered=True,
+                                base_url='http://somebaseurl',
+                                identifier='someidentifier', datestamp='somedatestamp',
+                                direct=True, metadata_namespace='somenamespace')
+    return study
 
 
 class TestConfigure(KuhaUnitTestCase):
@@ -433,20 +453,29 @@ class TestHTTPResponses(_Base):
             self.assertEqual(''.join(doc_titl_el.itertext()), exp_title)
         self.assertEqual(expected, {})
 
+    # TEST OAI DATACITE
+
+    def test_GET_getrecord_oai_datacite_returns_resourcetype(self):
+        """Make sure #33 at BitBucket is implemented"""
+        study = _study_for_datacite()
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        restype_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                      '/datacite:resource/datacite:resourceType',
+                                      DATACITE_XMLNS)
+        self.assertEqual(len(restype_els), 1)
+        restype_el = restype_els.pop()
+        self.assertEqual(''.join(restype_el.itertext()), 'Dataset')
+        self.assertEqual(restype_el.get('resourceTypeGeneral'), 'Dataset')
+
     def test_GET_getrecord_oai_datacite_returns_publisher(self):
         """Make sure #31 at BitBucket is fixed
 
         Publisher should render study.distributors as primary source
         and prefer english.
         """
-        study = Study()
-        study.add_study_number('some_number')
-        study.add_identifiers('some_id', 'en', agency='DOI')
-        study._aggregator_identifier.add_value('agg_id_1')
-        study._provenance.add_value('someharvestdate', altered=True,
-                                    base_url='http://somebaseurl',
-                                    identifier='someidentifier', datestamp='somedatestamp',
-                                    direct=True, metadata_namespace='somenamespace')
+        study = _study_for_datacite()
         # These two should not render.
         study.add_distributors('jakelija', 'fi')
         study.add_publishers('publisher', 'en')
@@ -455,11 +484,9 @@ class TestHTTPResponses(_Base):
         resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
                                                       metadata_prefix='oai_datacite',
                                                       identifier='someid'))
-        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
-                                 'xml': 'http://www.w3.org/XML/1998/namespace'})
         publisher_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
                                         '/datacite:resource/datacite:publisher',
-                                        xmlns)
+                                        DATACITE_XMLNS)
         self.assertEqual(len(publisher_els), 1)
         self.assertEqual(''.join(publisher_els.pop().itertext()),
                          'distributor')
@@ -471,23 +498,14 @@ class TestHTTPResponses(_Base):
         Change the primary lookup from study.publication_years.value to
         study.publication_years.attr_distribution_date.value.
         """
-        study = Study()
-        study.add_study_number('some_number')
-        study.add_identifiers('some_id', 'en', agency='DOI')
-        study._aggregator_identifier.add_value('agg_id_1')
-        study._provenance.add_value('someharvestdate', altered=True,
-                                    base_url='http://somebaseurl',
-                                    identifier='someidentifier', datestamp='somedatestamp',
-                                    direct=True, metadata_namespace='somenamespace')
+        study = _study_for_datacite()
         study.add_publication_years('1800', 'en', distribution_date='2002-01-02')
         resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
                                                       metadata_prefix='oai_datacite',
                                                       identifier='someid'))
-        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
-                                 'xml': 'http://www.w3.org/XML/1998/namespace'})
         publication_year_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
                                                '/datacite:resource/datacite:publicationYear',
-                                               xmlns)
+                                               DATACITE_XMLNS)
         self.assertEqual(len(publication_year_els), 1)
         self.assertEqual(''.join(publication_year_els.pop().itertext()),
                          '2002')
@@ -498,14 +516,7 @@ class TestHTTPResponses(_Base):
         Include property Date in oai_datacite. Use
         study.publication_years.attr_distribution_date.value
         """
-        study = Study()
-        study.add_study_number('some_number')
-        study.add_identifiers('some_id', 'en', agency='DOI')
-        study._aggregator_identifier.add_value('agg_id_1')
-        study._provenance.add_value('someharvestdate', altered=True,
-                                    base_url='http://somebaseurl',
-                                    identifier='someidentifier', datestamp='somedatestamp',
-                                    direct=True, metadata_namespace='somenamespace')
+        study = _study_for_datacite()
         study.add_publication_years('1900', 'en', distribution_date='2002-01-02')
         study.add_publication_years('1800', 'fi', distribution_date='2003-03-04')
         resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
@@ -516,14 +527,435 @@ class TestHTTPResponses(_Base):
         date_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata/datacite:resource'
                                    '/datacite:dates/datacite:date', xmlns)
         self.assertEqual(len(date_els), 2)
-        expected = {'2002-01-02': 'en',
-                    '2003-03-04': 'fi'}
+        expected = ['2002-01-02', '2003-03-04']
         for date_el in date_els:
             val = ''.join(date_el.itertext())
             self.assertIn(val, expected)
-            exp_lang = expected.pop(val)
-            self.assertEqual(exp_lang, date_el.get('{%s}lang' % xmlns['xml']))
-        self.assertEqual(expected, {})
+            expected.remove(val)
+        self.assertEqual(expected, [])
+
+    def test_GET_getrecord_oai_datacite_identifier(self):
+        study = Study()
+        study.add_study_number('some_number')
+        study.add_identifiers('some_id', 'en', agency='DOI')
+        study._aggregator_identifier.add_value('agg_id_1')
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='some_id'))
+        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
+                                 'xml': THE_XMLNS})
+        id_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata/datacite:resource/datacite:identifier',
+            xmlns)
+        self.assertEqual(len(id_els), 1)
+        id_el = id_els.pop()
+        self.assertEqual(''.join(id_el.itertext()), 'some_id')
+        self.assertEqual(id_el.get('identifierType'), 'DOI')
+
+    def test_GET_getrecord_oai_datacite_creators(self):
+        study = _study_for_datacite()
+        study.add_principal_investigators('some pi', 'en', organization='some org')
+        study.add_principal_investigators('joku pi', 'fi', organization='joku org')
+        study.add_principal_investigators('another pi', 'en', organization='another org')
+        study.add_principal_investigators('toinen pi', 'fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='some_id'))
+        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
+                                 'xml': THE_XMLNS})
+        creator_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata/datacite:resource/'
+            'datacite:creators/datacite:creator',
+            xmlns)
+        self.assertEqual(len(creator_els), 4)
+        exp = {'some pi': ('en', 'some org'),
+               'joku pi': ('fi', 'joku org'),
+               'another pi': ('en', 'another org'),
+               'toinen pi': ('fi', '')}
+        for creator_el in creator_els:
+            # Attribute 'xml:lang' is not allowed to appear in element 'creator'.
+            self.assertNotIn(XML_LANG_ATT, creator_el.attrib)
+            self.assertEqual(creator_el.attrib, {})
+            name_el = creator_el.find('./datacite:creatorName', xmlns)
+            # Attribute 'xml:lang' is not allowed to appear in element 'creatorName'.
+            self.assertNotIn(XML_LANG_ATT, name_el.attrib)
+            name = ''.join(name_el.itertext())
+            self.assertIn(name, exp)
+            aff_el = creator_el.find('./datacite:affiliation', xmlns)
+            exp_lang, exp_aff = exp.pop(name)
+            self.assertEqual(_get_xmllang(aff_el), exp_lang)
+            self.assertEqual(''.join(aff_el.itertext()), exp_aff)
+
+    def test_GET_getrecord_oai_datacite_titles(self):
+        study = _study_for_datacite()
+        study.add_study_titles('joku title', 'fi')
+        study.add_study_titles('some title', 'en')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='some_id'))
+        xmlns = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
+                                 'xml': THE_XMLNS})
+        title_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata/datacite:resource/datacite:titles/datacite:title',
+            xmlns)
+        exp = {'joku title': 'fi', 'some title': 'en'}
+        self.assertEqual(len(title_els), len(exp))
+        for title_el in title_els:
+            title = ''.join(title_el.itertext())
+            self.assertIn(title, exp)
+            exp_lang = exp.pop(title)
+            self.assertEqual(_get_xmllang(title_el), exp_lang)
+        self.assertEqual(exp, {})
+
+    def test_GET_getrecord_oai_datacite_publishers_prefers_english(self):
+        """In Datacite, there can only be one publisher. Kuha records may have multiple.
+        Prioritize english content. Otherwise take the first one.
+        """
+        study = _study_for_datacite()
+        study.add_distributors('joku jakelija', 'fi')
+        study.add_distributors('some distributor', 'en')
+        study.add_publishers('joku julkaisija', 'fi')
+        study.add_publishers('some publ', 'en')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publisher',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), 'some distributor')
+        # Attribute 'xml:lang' is not allowed to appear in element 'publisher'.
+        self.assertNotIn(XML_LANG_ATT, publ_el.attrib)
+
+    def test_GET_getrecord_oai_datacite_publishers_takes_the_first_one(self):
+        """In Datacite, there can only be one publisher. Kuha records may have multiple.
+        Prioritize english content. Otherwise take the first one.
+        """
+        study = _study_for_datacite()
+        study.add_publishers('någon publ', 'sv')
+        study.add_publishers('joku julkaisija', 'fi')
+        study.add_distributors('någon distr', 'sv')
+        study.add_distributors('joku jakelija', 'fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publisher',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), 'någon distr')
+
+    def test_GET_getrecord_oai_datacite_publisher_alternative_source_prefer_english(self):
+        study = _study_for_datacite()
+        study.add_publishers('joku julkaisija', 'fi')
+        study.add_publishers('some publ', 'en')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publisher',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), 'some publ')
+
+    def test_GET_getrecord_oai_datacite_publisher_alternative_source(self):
+        study = _study_for_datacite()
+        study.add_publishers('någon publ', 'sv')
+        study.add_publishers('joku julkaisija', 'fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publisher',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), 'någon publ')
+
+    def test_GET_getrecord_oai_datacite_publicationyear(self):
+        study = _study_for_datacite()
+        study.add_publication_years('2010', 'en', distribution_date='2011-01-02')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publicationYear',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els,), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), '2011')
+
+    def test_GET_getrecord_oai_datacite_publicationyear_unformatted(self):
+        study = _study_for_datacite()
+        study.add_publication_years('2010', 'en', distribution_date='2012')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publicationYear',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els,), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), '2012')
+
+    def test_GET_getrecord_oai_datacite_publicationyear_alternative(self):
+        study = _study_for_datacite()
+        study.add_publication_years('2010-01-02', 'en')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publicationYear',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), '2010')
+
+    def test_GET_getrecord_oai_datacite_publicationyear_alternative_unformatted(self):
+        study = _study_for_datacite()
+        study.add_publication_years('2010', 'en')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        publ_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:publicationYear',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(publ_els), 1)
+        publ_el = publ_els.pop()
+        self.assertEqual(''.join(publ_el.itertext()), '2010')
+
+    def test_GET_getrecord_oai_datacite_subjects(self):
+        study = _study_for_datacite()
+        study.add_keywords(None, 'en', system_name='some system',
+                           uri='some.uri', description='some keyword')
+        study.add_keywords(None, 'en', system_name='another system',
+                           uri='another.uri', description='another keyword')
+        study.add_classifications(None, 'en', system_name='yasystem',
+                                  uri='ya.uri', description='some class')
+        study.add_classifications(None, 'fi', system_name='yasysteemi',
+                                  uri='ya.uri/fi', description='joku luokka')
+        exp = {'some keyword': ('some system', 'some.uri', 'en'),
+               'another keyword': ('another system', 'another.uri', 'en'),
+               'some class': ('yasystem', 'ya.uri', 'en'),
+               'joku luokka': ('yasysteemi', 'ya.uri/fi', 'fi')}
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        subj_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:subjects/datacite:subject',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(subj_els), len(exp))
+        for subj_el in subj_els:
+            val = ''.join(subj_el.itertext())
+            self.assertIn(val, exp)
+            exp_scheme, exp_uri, exp_lang = exp.pop(val)
+            self.assertEqual(subj_el.get('subjectScheme'), exp_scheme)
+            self.assertEqual(subj_el.get('schemeURI'), exp_uri)
+            self.assertEqual(_get_xmllang(subj_el), exp_lang)
+        self.assertEqual(exp, {})
+
+    def test_GET_getrecord_oai_datacite_dates(self):
+        study = _study_for_datacite()
+        study.add_publication_years(None, 'en', distribution_date='2002-01-02')
+        study.add_publication_years(None, 'fi', distribution_date='2003-03-04')
+        exp = ['2002-01-02', '2003-03-04']
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        date_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:dates/datacite:date',
+                                   DATACITE_XMLNS)
+        for date_el in date_els:
+            # Attribute 'xml:lang' is not allowed to appear in element 'date'
+            self.assertNotIn(XML_LANG_ATT, date_el.attrib)
+            val = ''.join(date_el.itertext())
+            self.assertIn(val, exp)
+            exp.remove(val)
+            self.assertEqual(date_el.get('dateType'), 'Issued')
+        self.assertEqual(exp, [])
+
+    def test_GET_getrecord_oai_datacite_rights(self):
+        study = _study_for_datacite()
+        study.add_data_access('some rights', 'en')
+        study.add_data_access('joku rights', 'fi')
+        exp = ['some rights', 'joku rights']
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        rights_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                     '/datacite:resource/datacite:rightsList/datacite:rights',
+                                     DATACITE_XMLNS)
+        self.assertEqual(len(rights_els), len(exp))
+        for rights_el in rights_els:
+            # Attribute 'xml:lang' is not allowed to appear in element 'rights'
+            self.assertNotIn(XML_LANG_ATT, rights_el.attrib)
+            val = ''.join(rights_el.itertext())
+            self.assertIn(val, exp)
+            exp.remove(val)
+        self.assertEqual(exp, [])
+
+    def test_GET_getrecord_oai_datacite_description(self):
+        study = _study_for_datacite()
+        study.add_abstract('some abstract', 'en')
+        study.add_abstract('joku abstrakti', 'fi')
+        exp = {'some abstract': 'en',
+               'joku abstrakti': 'fi'}
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        desc_els = resp_el.findall('./oai:GetRecord/oai:record/oai:metadata'
+                                   '/datacite:resource/datacite:descriptions/datacite:description',
+                                   DATACITE_XMLNS)
+        self.assertEqual(len(desc_els), len(exp))
+        for desc_el in desc_els:
+            val = ''.join(desc_el.itertext())
+            self.assertIn(val, exp)
+            exp_lang = exp.pop(val)
+            self.assertEqual(_get_xmllang(desc_el), exp_lang)
+            # descriptionType='Abstract' is a constant
+            self.assertEqual(desc_el.get('descriptionType'), 'Abstract')
+        self.assertEqual(exp, {})
+
+    def test_GET_getrecord_oai_datacite_geolocations(self):
+        study = _study_for_datacite()
+        study.add_geographic_coverages('some coverage', 'en')
+        study.add_geographic_coverages('joku coverage', 'fi')
+        exp = {'some coverage': 'en',
+               'joku coverage': 'fi'}
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        loc_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata'
+            '/datacite:resource/datacite:geoLocations'
+            '/datacite:geoLocation/datacite:geoLocationPlace',
+            DATACITE_XMLNS)
+        self.assertEqual(len(loc_els), len(exp))
+        for loc_el in loc_els:
+            val = ''.join(loc_el.itertext())
+            self.assertIn(val, exp)
+            exp_lang = exp.pop(val)
+            self.assertEqual(_get_xmllang(loc_el), exp_lang)
+        self.assertEqual(exp, {})
+
+    def test_GET_getrecord_oai_datacite_relatedIdentifier(self):
+        """Related Publication identifiers are mapped to relatedIdentifier
+
+        Page at https://guidelines.openaire.eu/en/latest/data/field_relatedidentifier.html
+        lists a controlled list of values for identifier type. Agency must be one of them,
+        or relatedIdentifier cannot be rendered.
+
+        See also https://guidelines.openaire.eu/en/latest/data/use_of_datacite.html#related-publications-and-datasets-information
+        """
+        study = _study_for_datacite()
+        study.add_related_publications(None, language='en',
+                                       identifier='first.id',
+                                       identifier_agency='DOI')
+        study.add_related_publications(None, language='en',
+                                       identifier='second.id',
+                                       identifier_agency='ISBN')
+        study.add_related_publications(None, language='en',
+                                       identifier='second.id',
+                                       identifier_agency='ARK')
+        # The rest should be ignored
+        study.add_related_publications(None, language='en',
+                                       identifier='second.id',
+                                       identifier_agency='ARK')
+        study.add_related_publications(None, language='en',
+                                       identifier='third.id',
+                                       identifier_agency='Unknown')
+        study.add_related_publications(None, language='en',
+                                       identifier='fourth.id')
+        exp = [('first.id', 'DOI'), ('second.id', 'ISBN'), ('second.id', 'ARK')]
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        relid_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata'
+            '/datacite:resource/datacite:relatedIdentifiers/datacite:relatedIdentifier',
+            DATACITE_XMLNS)
+        self.assertEqual(len(relid_els), len(exp))
+        for relid_el in relid_els:
+            self.assertEqual(relid_el.get('relationType'), 'IsCitedBy')
+            _id_type = (''.join(relid_el.itertext()),
+                        relid_el.get('relatedIdentifierType'))
+            self.assertIn(_id_type, exp)
+            exp.remove(_id_type)
+        self.assertEqual(exp, [])
+
+    def test_GET_getrecord_oai_datacite_discards_relatedIdentifier(self):
+        study = _study_for_datacite()
+        study.add_related_publications(None, language='en',
+                                       identifier_agency='ARK')
+        study.add_related_publications(None, language='en',
+                                       identifier='some.id',
+                                       identifier_agency='')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        relid_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata'
+            '/datacite:resource/datacite:relatedIdentifiers/datacite:relatedIdentifier',
+            DATACITE_XMLNS)
+        self.assertEqual(relid_els, [])
+
+    def test_GET_getrecord_oai_datacite_contributor(self):
+        study = _study_for_datacite()
+        study.add_grant_numbers('info:eu-repo/grantAgreement/EC/FP7/282896',
+                                language='en', agency='some agency')
+        study.add_grant_numbers('info:eu-repo/grantAgreement/funder/program/projectid',
+                                language='fi', agency='joku agency')
+        study.add_grant_numbers('some_grant_number',
+                                language='en', agency='some agency')
+        exp = [('info:eu-repo/grantAgreement/EC/FP7/282896', 'some agency'),
+               ('info:eu-repo/grantAgreement/funder/program/projectid', 'joku agency')]
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        contributor_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata'
+            '/datacite:resource/datacite:contributors/datacite:contributor',
+            DATACITE_XMLNS)
+        self.assertEqual(len(contributor_els), len(exp))
+        for contributor_el in contributor_els:
+            self.assertEqual(contributor_el.get('contributorType'), 'Funder')
+            cname_els = contributor_el.findall('./datacite:contributorName', DATACITE_XMLNS)
+            self.assertEqual(len(cname_els), 1)
+            nameid_els = contributor_el.findall('./datacite:nameIdentifier', DATACITE_XMLNS)
+            self.assertEqual(len(nameid_els), 1)
+            cname_el = cname_els.pop()
+            # Attribute 'xml:lang' is not allowed to appear in element 'contributorName'
+            self.assertNotIn(XML_LANG_ATT, cname_el.attrib)
+            nameid_el = nameid_els.pop()
+            # Attribute 'xml:lang' is not allowed to appear in element 'nameIdentifier'
+            self.assertNotIn(XML_LANG_ATT, nameid_el)
+            agency = ''.join(cname_el.itertext())
+            nameid = ''.join(nameid_el.itertext())
+            self.assertIn((nameid, agency), exp)
+            exp.remove((nameid, agency))
+        self.assertEqual(exp, [])
+
+    def test_GET_getrecord_oai_datacite_does_not_contain_contributor(self):
+        study = _study_for_datacite()
+        study.add_grant_numbers('some_grant_number',
+                                language='en', agency='some agency')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_datacite',
+                                                      identifier='someid'))
+        contributor_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata'
+            '/datacite:resource/datacite:contributors/datacite:contributor',
+            DATACITE_XMLNS)
+        self.assertEqual(contributor_els, [])
+
+    # // TEST OAI DATACITE
 
     # LISTSETS
 

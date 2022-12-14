@@ -5,6 +5,24 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## 0.4.0 - unreleased
+
+### Added
+
+- Add hard-coded `resourceType` to `oai_datacite` serialization which
+  always has the value `Dataset`. (Implements
+  [#33](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/33))
+
+### Fixed
+
+- Make sure `oai_datacite` serialization yields valid Datacite
+  v3. (Fixes
+  [#35](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/35/))
+
+  - Remove invalid xml:lang attributes.
+  - Wrap geoLocationPlace inside geoLocation element.
+
+
 ## 0.3.0 - 2022-11-22
 
 ### Added

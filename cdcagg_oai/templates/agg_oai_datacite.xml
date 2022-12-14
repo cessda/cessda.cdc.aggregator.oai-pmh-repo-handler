@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?python
+from itertools import chain
+?>
+<resource
+    xmlns="http://datacite.org/schema/kernel-3"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:py="http://genshi.edgewall.org/"
+    xsi:schemaLocation="${metadata.namespace} ${metadata.schema}"
+    py:with="study=record.study;
+             pref_id=record.preferred_identifier;
+             publ_year=record.publication_year;
+             publisher_lang_val=record.publisher_lang_val;
+             relid_types_ids=record.related_identifier_types_ids;
+             funders=record.funders">
+  <identifier identifierType="${pref_id[0]}">${pref_id[1]}</identifier>
+  <creators>
+    <creator py:for="pi in study.principal_investigators">
+      <creatorName>${pi.get_value()}</creatorName>
+      <affiliation xml:lang="${pi.get_language()}">${pi.attr_organization.get_value()}</affiliation>
+    </creator>
+  </creators>
+  <titles>
+    <title py:for="title in study.study_titles" xml:lang="${title.get_language()}">${title.get_value()}</title>
+  </titles>
+  <publisher py:if="publisher_lang_val != ()">${publisher_lang_val[1]}</publisher>
+  <publicationYear py:if="publ_year">${publ_year}</publicationYear>
+  <subjects>
+    <subject py:for="subject in chain(study.keywords, study.classifications)"
+             xml:lang="${subject.get_language()}"
+             subjectScheme="${subject.attr_system_name.get_value()}"
+             schemeURI="${subject.attr_uri.get_value()}">${subject.attr_description.get_value()}</subject>
+  </subjects>
+  <contributors py:if="funders != []">
+    <contributor py:for="_, nameid, agency in funders"
+                 contributorType="Funder">
+      <contributorName>${agency}</contributorName>
+      <nameIdentifier nameIdentifierScheme="info">${nameid}</nameIdentifier>
+    </contributor>
+  </contributors>
+  <dates>
+    <py:for each="pub_year in study.publication_years"
+            py:with="date = pub_year.attr_distribution_date.get_value()">
+      <date py:if="date" dateType="Issued">${date}</date>
+    </py:for>
+  </dates>
+  <resourceType resourceTypeGeneral="Dataset">Dataset</resourceType>
+  <relatedIdentifiers>
+    <relatedIdentifier py:for="_type, _id in relid_types_ids"
+                       relationType="IsCitedBy"
+                       relatedIdentifierType="${_type}">${_id}</relatedIdentifier>
+  </relatedIdentifiers>
+  <rightsList>
+    <rights py:for="accs in study.data_access">${accs.get_value()}</rights>
+  </rightsList>
+  <descriptions>
+    <description py:for="abstract in study.abstract"
+                 descriptionType="Abstract"
+                 xml:lang="${abstract.get_language()}">${abstract.get_value()}</description>
+  </descriptions>
+  <geoLocations>
+    <geoLocation py:for="cov in study.geographic_coverages">
+      <geoLocationPlace xml:lang="${cov.get_language()}">${cov.get_value()}</geoLocationPlace>
+    </geoLocation>
+  </geoLocations>
+</resource>
