@@ -48,6 +48,8 @@ MD_PREFIXES = ('oai_dc', 'oai_ddi25', 'oai_datacite')
 XML_LANG_ATT = '{%s}lang' % (THE_XMLNS,)
 DATACITE_XMLNS = dict(**XMLNS, **{'datacite': 'http://datacite.org/schema/kernel-3',
                                   'xml': THE_XMLNS})
+OAIDC_XMLNS = dict(**XMLNS, **{'dc': 'http://purl.org/dc/elements/1.1/',
+                               'oai_dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/'})
 
 
 def _get_xmllang(element):
@@ -58,6 +60,17 @@ def _study_for_datacite():
     study = Study()
     study.add_study_number('some_number')
     study.add_identifiers('some_id', 'en', agency='DOI')
+    study._aggregator_identifier.add_value('agg_id_1')
+    study._provenance.add_value('someharvestdate', altered=True,
+                                base_url='http://somebaseurl',
+                                identifier='someidentifier', datestamp='somedatestamp',
+                                direct=True, metadata_namespace='somenamespace')
+    return study
+
+
+def _study_for_oaidc():
+    study = Study()
+    study.add_study_number('some_number')
     study._aggregator_identifier.add_value('agg_id_1')
     study._provenance.add_value('someharvestdate', altered=True,
                                 base_url='http://somebaseurl',
@@ -956,6 +969,144 @@ class TestHTTPResponses(_Base):
         self.assertEqual(contributor_els, [])
 
     # // TEST OAI DATACITE
+
+    # TEST OAI DC
+
+    def _assert_oai_dc_contains(self, resp_el, dc_xpath, expected):
+        dc_els = resp_el.findall(
+            f'./oai:GetRecord/oai:record/oai:metadata/oai_dc:dc/{dc_xpath}',
+            OAIDC_XMLNS)
+        self.assertEqual(len(dc_els), len(expected))
+        for dc_el in dc_els:
+            val = ''.join(dc_el.itertext())
+            self.assertIn(val, expected)
+            exp_lang = expected.pop(val)
+            self.assertEqual(_get_xmllang(dc_el), exp_lang)
+        self.assertEqual(expected, {})
+
+    def test_GET_getrecord_oai_dc_contains_dc_type(self):
+        """Make sure dc:type is present.
+
+        Test against #36 at Bitbucket.
+        """
+        study = _study_for_oaidc()
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:type', {'Dataset': 'en'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_identifier(self):
+        study = _study_for_oaidc()
+        study.add_identifiers('some_id', language='en')
+        study.add_identifiers('some_id', language='fi')
+        study.add_document_uris('some_uri', language='fi')
+        study.add_document_uris('some_uri', language='en')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:identifier', {'some_id': None,
+                                                                'some_uri': None})
+
+    def test_GET_getrecord_oai_dc_contains_dc_title(self):
+        study = _study_for_oaidc()
+        study.add_study_titles('sometitle', language='en')
+        study.add_study_titles('jokutitle', language='fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:title', {'sometitle': 'en',
+                                                           'jokutitle': 'fi'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_creator(self):
+        study = _study_for_oaidc()
+        study.add_principal_investigators('somepi', language='en')
+        study.add_principal_investigators('jokupi', language='fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:creator', {'somepi': 'en',
+                                                             'jokupi': 'fi'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_publisher(self):
+        study = _study_for_oaidc()
+        study.add_publishers('somepublisher', language='en')
+        study.add_publishers('jokupublisher', language='fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:publisher',
+                                     {'somepublisher': 'en',
+                                      'jokupublisher': 'fi'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_description(self):
+        study = _study_for_oaidc()
+        study.add_abstract('someabs', language='en')
+        study.add_abstract('jokuabs', language='fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:description',
+                                     {'someabs': 'en',
+                                      'jokuabs': 'fi'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_subject(self):
+        study = _study_for_oaidc()
+        study.add_keywords('somekeyword', language='en')
+        study.add_keywords(None, language='fi', description='joku keyword')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:subject',
+                                     {'somekeyword': 'en',
+                                      'joku keyword': 'fi'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_language(self):
+        study = _study_for_oaidc()
+        study.add_study_titles('sometitle', language='en')
+        study.add_study_titles('othertitle', language='en')
+        study.add_study_titles('otsikko', language='fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:language',
+                                     {'en': None,
+                                      'fi': None})
+
+    def test_GET_getrecord_oai_dc_contains_dc_date(self):
+        study = _study_for_oaidc()
+        study.add_publication_years('2000', language='en')
+        study.add_publication_years(None, language='fi', distribution_date='1800')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:date',
+                                     {'2000': 'en',
+                                      '1800': 'fi'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_rights(self):
+        study = _study_for_oaidc()
+        study.add_data_collection_copyrights('somecopyright', language='en')
+        study.add_data_collection_copyrights('jokucopyright', language='fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:rights',
+                                     {'somecopyright': 'en',
+                                      'jokucopyright': 'fi'})
+
+    def test_GET_getrecord_oai_dc_contains_dc_coverage(self):
+        study = _study_for_oaidc()
+        study.add_study_area_countries('somecountry', language='en')
+        study.add_study_area_countries('jokumaa', language='fi')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:coverage',
+                                     {'somecountry': 'en',
+                                      'jokumaa': 'fi'})
+
+
+    # // TEST OAI DC
 
     # LISTSETS
 

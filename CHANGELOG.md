@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Add hard-coded `resourceType` to `oai_datacite` serialization which
   always has the value `Dataset`. (Implements
   [#33](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/33))
+- Add hard-coded `dc:type` element to `oai_dc` serialization which
+  always has the value `Dataset`. (Implements
+  [#36](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/36))
 
 ### Fixed
 

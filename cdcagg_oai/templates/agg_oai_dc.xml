@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<oai_dc:dc
+    xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:py="http://genshi.edgewall.org/"
+    xsi:schemaLocation="${metadata.namespace} ${metadata.schema}"
+    py:with="study = record.study">
+
+  <dc:identifier py:for="identifier in set([id.get_value() for id in study.identifiers])">${identifier}</dc:identifier>
+  <dc:identifier py:for="distinct_uri in set([uri.get_value() for uri in study.document_uris])">${distinct_uri}</dc:identifier>
+
+  <dc:title py:for="title in study.study_titles"
+            xml:lang="${title.get_language()}">${title.get_value()}</dc:title>
+
+  <dc:creator py:for="principal_investigator in study.principal_investigators"
+              xml:lang="${principal_investigator.get_language()}">${principal_investigator.get_value()}</dc:creator>
+
+  <dc:publisher py:for="publisher in study.publishers"
+                xml:lang="${publisher.get_language()}">${publisher.get_value()}</dc:publisher>
+
+  <dc:description py:for="abstr in study.abstract"
+                  xml:lang="${abstr.get_language()}">${abstr.get_value()}</dc:description>
+
+  <dc:subject py:for="keyword in study.keywords"
+              py:with="subject_value = keyword.attr_description.get_value() if keyword.attr_description.get_value() else keyword.get_value()"
+              xml:lang="${keyword.get_language()}">${subject_value}</dc:subject>
+
+  <dc:language py:for="language in set([v.get_language() for v in study.study_titles])">${language}</dc:language>
+
+  <dc:date py:for="publication_year in study.publication_years"
+           py:with="date = publication_year.get_value() if publication_year.get_value() else publication_year.attr_distribution_date.get_value()"
+           xml:lang="${publication_year.get_language()}">${date}</dc:date>
+
+  <dc:type xml:lang="en">Dataset</dc:type>
+
+  <dc:rights py:for="copyright in study.data_collection_copyrights"
+             xml:lang="${copyright.get_language()}">${copyright.get_value()}</dc:rights>
+
+  <dc:coverage py:for="country in study.study_area_countries"
+               xml:lang="${country.get_language()}">${country.get_value()}</dc:coverage>
+
+</oai_dc:dc>

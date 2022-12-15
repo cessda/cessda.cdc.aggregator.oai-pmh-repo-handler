@@ -527,7 +527,7 @@ class AggDCMetadataFormat(AggMetadataFormatBase):
         cls.list_size = settings.oai_pmh_list_size_oai_dc
         super().configure(settings)
 
-    @GenPlate('agg_get_record.xml', subtemplate='oai_dc.xml')
+    @GenPlate('agg_get_record.xml', subtemplate='agg_oai_dc.xml')
     async def get_record(self):
         """Get OAI-DC record and prepare metadata response.
 
@@ -539,7 +539,7 @@ class AggDCMetadataFormat(AggMetadataFormatBase):
         await self._get_record()
         return await self._metadata_response()
 
-    @GenPlate('agg_list_records.xml', subtemplate='oai_dc.xml')
+    @GenPlate('agg_list_records.xml', subtemplate='agg_oai_dc.xml')
     async def list_records(self):
         """Get OAI-DC records and prepare metadata response.
 
