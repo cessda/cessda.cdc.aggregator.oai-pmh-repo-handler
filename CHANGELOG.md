@@ -20,13 +20,12 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   [#22](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/22))
 - Configuration option to control XML Stylesheets
   (``--oai-pmh-stylesheet-url``):
-
-  - Set to empty string to disable stylesheets completely.
-  - Set to a full URL to serve the stylesheet from some external file server.
-  - Start with a slash ('/') to serve via Kuha OAI-PMH Repo Handler server.
-  - Defaults to '/v0/oai/static/oai2.xsl', which works with other
-    default configuration values and uses Kuha OAI-PMH Repo Handler server
-    to actually serve the file.
+    - Set to empty string to disable stylesheets completely.
+    - Set to a full URL to serve the stylesheet from some external file server.
+    - Start with a slash ('/') to serve via Kuha OAI-PMH Repo Handler server.
+    - Defaults to '/v0/oai/static/oai2.xsl', which works with other
+      default configuration values and uses Kuha OAI-PMH Repo Handler server
+      to actually serve the file.
 
 ### Changed
 
@@ -37,9 +36,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Make sure `oai_datacite` serialization yields valid Datacite
   v3. (Fixes
   [#35](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/35/))
-
-  - Remove invalid xml:lang attributes.
-  - Wrap geoLocationPlace inside geoLocation element.
+    - Remove invalid xml:lang attributes.
+    - Wrap geoLocationPlace inside geoLocation element.
 
 
 ## 0.3.0 - 2022-11-22
@@ -59,12 +57,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   Study.distributors. The current lookup from Study.publishers will
   remain as a secondary source. (Fixes [#31](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/31))
 - Update dependencies:
-
-  - Require Aggregator Shared Library 0.5.0 in requirements.txt and setup.py.
-  - Require Kuha OAI-PMH Repo Handler 1.1.0 in requirements.txt and setup.py.
-  - Require Kuha Common 2.0.1 in requirements.txt and 2.0.0 or newer in setup.py.
-  - Require Tornado 6.2.0 in requirements.txt.
-  - Require Genshi 0.7.7 in requirements.txt.
+    - Require Aggregator Shared Library 0.5.0 in requirements.txt and setup.py.
+    - Require Kuha OAI-PMH Repo Handler 1.1.0 in requirements.txt and setup.py.
+    - Require Kuha Common 2.0.1 in requirements.txt and 2.0.0 or newer in setup.py.
+    - Require Tornado 6.2.0 in requirements.txt.
+    - Require Genshi 0.7.7 in requirements.txt.
 
 ### Fixed
 
