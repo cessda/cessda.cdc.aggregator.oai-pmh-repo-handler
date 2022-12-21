@@ -5,7 +5,7 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## 0.4.0 - unreleased
+## 0.4.0 - 2022-12-21
 
 ### Added
 
@@ -15,6 +15,22 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Add hard-coded `dc:type` element to `oai_dc` serialization which
   always has the value `Dataset`. (Implements
   [#36](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/36))
+- Add XML Stylesheet to make OAI responses more
+  human-friendly. (Implements
+  [#22](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/22))
+- Configuration option to control XML Stylesheets
+  (``--oai-pmh-stylesheet-url``):
+
+  - Set to empty string to disable stylesheets completely.
+  - Set to a full URL to serve the stylesheet from some external file server.
+  - Start with a slash ('/') to serve via Kuha OAI-PMH Repo Handler server.
+  - Defaults to '/v0/oai/static/oai2.xsl', which works with other
+    default configuration values and uses Kuha OAI-PMH Repo Handler server
+    to actually serve the file.
+
+### Changed
+
+- Require Kuha OAI-PMH Repo Handler 1.2.0 in requirements.txt and setup.py.
 
 ### Fixed
 

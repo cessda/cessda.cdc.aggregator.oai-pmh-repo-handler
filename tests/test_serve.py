@@ -169,6 +169,8 @@ class _Base(AsyncHTTPTestCase):
                                     'base'),
             oai_pmh_admin_email=kw.get('oai_pmh_admin_email',
                                        'email'),
+            oai_pmh_stylesheet_url=kw.get('oai_pmh_stylesheet_url',
+                                          '/v0/oai/static/oai2.xsl'),
             template_folder=kw.get(
                 'template_folder',
                 metadataformats.AggMetadataFormatBase.default_template_folders))
@@ -1383,3 +1385,66 @@ class TestConfigurations(_Base):
         resp_xml = TestHTTPResponses.resp_to_xmlel(self.fetch(OAI_URL + '?verb=Identify'))
         self.assertEqual(''.join(resp_xml.find('./oai:Identify/oai:deletedRecord', XMLNS).itertext()),
                          'persistent')
+
+
+def get_line(sbuffer, lineno):
+    for index in range(lineno):
+        if index == lineno - 1:
+            return next(sbuffer)
+        next(sbuffer)
+
+
+class TestNoXMLStylesheet(_Base):
+    """Make sure XML Stylesheet is included
+
+    CDCAGG OAI-PMH contains two templates that are not from Kuha2:
+    get_record and list_records. Test that they also contain the
+    stylesheets.
+    """
+    oai_pmh_stylesheet_url = ''
+
+    def setUp(self):
+        self.settings(oai_pmh_stylesheet_url=self.oai_pmh_stylesheet_url)
+        super().setUp()
+        self._mock_query_single = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_single'))
+        self._mock_query_multiple = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_multiple'))
+        self._mock_query_count = self._init_patcher(mock.patch(
+            'kuha_common.query.QueryController.query_count'))
+
+    def _assert_oai_response_success(self, response):
+        xmlel = ElementTree.fromstring(response.body)
+        self.assertIsNone(xmlel.find('oai:error', XMLNS))
+
+    def _assert_stylesheet_line(self, response):
+        self._assert_oai_response_success(response)
+        stylesheet_line = get_line(response.buffer, 2).decode('utf8')
+        stylesheet_line = stylesheet_line.split('?>')[0]
+        self.assertTrue(stylesheet_line.startswith('<?xml-stylesheet type=\'text/xsl\' href='))
+        stylesheet_url = stylesheet_line.split("'")[-2]
+        self.assertEqual(stylesheet_url, self.oai_pmh_stylesheet_url)
+
+    def _assert_no_stylesheet(self, response):
+        self._assert_oai_response_success(response)
+        stylesheet_line = get_line(response.buffer, 2).decode('utf8')
+        self.assertNotIn('xml-stylesheet', stylesheet_line)
+
+    def _assert_method(self, response):
+        return self._assert_no_stylesheet(response)
+
+    def test_get_record(self):
+        self._mock_query_single.side_effect = mock_coro(func=_query_single(_study_for_oaidc()))
+        self._assert_method(self.fetch(OAI_URL + '?verb=GetRecord&identifier=someid&metadataPrefix=oai_dc'))
+
+    def test_list_records(self):
+        self._mock_query_count.side_effect = mock_coro(1)
+        self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple({'studies': [_study_for_oaidc()]}))
+        self._assert_method(self.fetch(OAI_URL + '?verb=ListRecords&metadataPrefix=oai_dc'))
+
+class TestHasXMLStylesheet(TestNoXMLStylesheet):
+
+    oai_pmh_stylesheet_url = '/some/path'
+
+    def _assert_method(self, response):
+        return self._assert_stylesheet_line(response)
