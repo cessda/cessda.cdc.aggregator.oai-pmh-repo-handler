@@ -32,7 +32,7 @@ requires = [
 
 setup(name='cdcagg_oai',
       version=version,
-      url='https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler',
+      url='https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler',
       description='',
       license='EUPL v1.2',
       author='Toni Sissala',

@@ -16,7 +16,7 @@
 HTTP server providing an OAI-PMH aggregator endpoint serving DocStore
 records. This program is part of CESSDA Metadata Aggregator.
 
-Source code is hosted at Bitbucket [https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler).
+Source code is hosted at Bitbucket [https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler).
 
 ## Features ##
 
@@ -65,13 +65,13 @@ On Ubuntu 20.04
 Clone the repository using Git.
 
 ```sh
-git clone https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler.git
+git clone https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler.git
 ```
 
 Or fetch a specific release using a tag. For example to get 0.2.0 release.
 
 ```sh
-git clone --branch 0.2.0 https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler.git
+git clone --branch 0.2.0 https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler.git
 ```
 
 

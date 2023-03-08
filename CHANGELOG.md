@@ -11,13 +11,13 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Add hard-coded `resourceType` to `oai_datacite` serialization which
   always has the value `Dataset`. (Implements
-  [#33](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/33))
+  [#33](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/33))
 - Add hard-coded `dc:type` element to `oai_dc` serialization which
   always has the value `Dataset`. (Implements
-  [#36](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/36))
+  [#36](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/36))
 - Add XML Stylesheet to make OAI responses more
   human-friendly. (Implements
-  [#22](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/22))
+  [#22](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/22))
 - Configuration option to control XML Stylesheets
   (``--oai-pmh-stylesheet-url``):
     - Set to empty string to disable stylesheets completely.
@@ -35,7 +35,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Make sure `oai_datacite` serialization yields valid Datacite
   v3. (Fixes
-  [#35](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/35/))
+  [#35](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/35/))
     - Remove invalid xml:lang attributes.
     - Wrap geoLocationPlace inside geoLocation element.
 
@@ -46,16 +46,16 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Grant & funding information to `oai_datacite` and `oai_ddi25`
   metadata. (Implements
-  [#34](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/34))
+  [#34](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/34))
 - Related publication identifiers and agencies to `oai_datacite` and
   `oai_ddi25` metadata. (Implements
-  [#34](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/34))
+  [#34](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/34))
 
 ### Changed
 
 - Add primary lookup to `oai_datacite` Publisher from
   Study.distributors. The current lookup from Study.publishers will
-  remain as a secondary source. (Fixes [#31](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/31))
+  remain as a secondary source. (Fixes [#31](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/31))
 - Update dependencies:
     - Require Aggregator Shared Library 0.5.0 in requirements.txt and setup.py.
     - Require Kuha OAI-PMH Repo Handler 1.1.0 in requirements.txt and setup.py.
@@ -66,10 +66,10 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 ### Fixed
 
 - Change lookup order of preferred PublicationYear value for
-  `oai_datacite`. (Fixes [#30](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/30))
+  `oai_datacite`. (Fixes [#30](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/30))
 - Format PublicationYear value for `oai_datecite` so that it is a
-  year, instead of full datestamp. (Fixes [#30](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/30))
-- Include mandatory Date property to `oai_datacite`. (Fixes [#29](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/29))
+  year, instead of full datestamp. (Fixes [#30](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/30))
+- Include mandatory Date property to `oai_datacite`. (Fixes [#29](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/29))
 
 
 ## 0.2.1 - 2022-06-29
@@ -83,14 +83,14 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 ### Fixed
 
 - Include missing fields to oai_ddi25 metadata: (Fixes
-  [#26](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/26))
+  [#26](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/26))
     - /codeBook/docDscr/citation/titlStmt/titl
     - /codeBook/stdyDscr/citation/holdings/@URI
     - /codeBook/stdyDscr/stdyInfo/sumDscr/dataKind
 
 - Render subject in oai_dc metadata regardless if the study.keyword
   does not have a value. (Fixes
-  [#27](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/27))
+  [#27](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/27))
 
 
 
@@ -104,7 +104,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   mandatory while description is optional.
 - Mapping file for configurable-sets now supports external mapping
   files via `path` key. (Implements
-  [#18](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/18))
+  [#18](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/18))
 - Mapping file for configurable-sets is validated upon server startup.
 
 ### Changed
@@ -124,18 +124,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 - Value for the altered attribute in Provenance containers is now
   either 'true' or 'false. (Fixes
-  [#14](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/14))
+  [#14](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/14))
 - Empty setName elements for language-sets are populated with
   generated values. Key-value pairs for setname are expected to be
   defined for source-sets in configured mapping file. (Fixes
-  [#15](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/15))
+  [#15](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/15))
 - Source set no longer falls back to automatically generating sets
   based on source archive's baseUrl. (Fixes
-  [#15](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/15))
+  [#15](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/15))
 - deletedRecord declaration is now configurable. (Fixes
-  [#16](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/16))
+  [#16](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/16))
 - Provenance container's baseUrl element name should be baseURL. (Fixes
-  [#19](https://bitbucket.org/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/19))
+  [#19](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/19))
 
 
 ## 0.1.0 - 2021-09-21
