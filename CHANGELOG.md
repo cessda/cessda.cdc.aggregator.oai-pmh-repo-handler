@@ -5,6 +5,15 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## 0.5.0 - unreleased
+
+### Added
+
+- Include `study.study_uris` to element <dc:identifier> in `oai_dc`
+  serialization. (Implements
+  [#40](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/40))
+
+
 ## 0.4.0 - 2022-12-21
 
 ### Added

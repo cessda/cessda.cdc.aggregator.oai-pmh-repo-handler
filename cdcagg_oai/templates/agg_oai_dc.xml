@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<?python
+  from itertools import chain
+?>
 <oai_dc:dc
     xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
     xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -8,7 +11,7 @@
     py:with="study = record.study">
 
   <dc:identifier py:for="identifier in set([id.get_value() for id in study.identifiers])">${identifier}</dc:identifier>
-  <dc:identifier py:for="distinct_uri in set([uri.get_value() for uri in study.document_uris])">${distinct_uri}</dc:identifier>
+  <dc:identifier py:for="distinct_uri in set([uri.get_value() for uri in chain(study.document_uris, study.study_uris)])">${distinct_uri}</dc:identifier>
 
   <dc:title py:for="title in study.study_titles"
             xml:lang="${title.get_language()}">${title.get_value()}</dc:title>

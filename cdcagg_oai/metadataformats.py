@@ -496,6 +496,7 @@ class AggDCMetadataFormat(AggMetadataFormatBase):
                 self.study_class.principal_investigators,
                 self.study_class.publishers,
                 self.study_class.document_uris,
+                self.study_class.study_uris,
                 self.study_class.abstract,
                 self.study_class.keywords,
                 self.study_class.publication_years,
