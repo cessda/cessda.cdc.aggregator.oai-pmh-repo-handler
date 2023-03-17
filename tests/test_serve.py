@@ -1009,6 +1009,19 @@ class TestHTTPResponses(_Base):
         self._assert_oai_dc_contains(resp_el, 'dc:identifier', {'some_id': None,
                                                                 'some_uri': None})
 
+    def test_GET_getrecord_oai_dc_contains_distinct_uris_in_dc_identifier(self):
+        study = _study_for_oaidc()
+        study.add_identifiers('some_id', language='en')
+        study.add_document_uris('some_uri', language='fi')
+        study.add_study_uris('some_uri', language='sv')
+        study.add_study_uris('another_uri', language='sv')
+        resp_el = self.resp_to_xmlel(self.oai_request(study, verb='GetRecord',
+                                                      metadata_prefix='oai_dc',
+                                                      identifier='agg_id_1'))
+        self._assert_oai_dc_contains(resp_el, 'dc:identifier', {'some_id': None,
+                                                                'some_uri': None,
+                                                                'another_uri': None})
+
     def test_GET_getrecord_oai_dc_contains_dc_title(self):
         study = _study_for_oaidc()
         study.add_study_titles('sometitle', language='en')
@@ -1362,6 +1375,28 @@ class TestQueries(_Base):
             'grant_numbers',
             'related_publications'
         ])
+
+    def test_GET_getrecord_oai_dc_includes_fields(self):
+        self.fetch(OAI_URL + '?verb=GetRecord&metadataPrefix=oai_dc&identifier=someid')
+        calls = self._mock_fetch.call_args_list
+        self.assertEqual(len(calls), 1)
+        cargs, ckwargs = calls[0]
+        self.assertCountEqual(cargs[2]['fields'], [
+            '_aggregator_identifier',
+            '_metadata',
+            '_provenance',
+            'study_number',
+            'study_titles',
+            'identifiers',
+            'principal_investigators',
+            'publishers',
+            'document_uris',
+            'study_uris',
+            'abstracts',
+            'keywords',
+            'publication_years',
+            'study_area_countries',
+            'data_collection_copyrights'])
 
 
 class TestConfigurations(_Base):
