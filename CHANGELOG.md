@@ -5,6 +5,14 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## 0.6.0 - Unreleased
+
+### Added
+
+- Add /metrics endpoint to serve prometheus metrics (Implements
+  [#43](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/43))
+
+
 ## 0.5.0 - 2023-03-17
 
 ### Added

@@ -32,6 +32,8 @@ from kuha_oai_pmh_repo_handler import (
 )
 from kuha_oai_pmh_repo_handler.serve import load_metadataformats
 
+from cdcagg_oai import metrics
+
 
 _logger = logging.getLogger(__name__)
 
@@ -83,7 +85,8 @@ def main():
         return
     try:
         ctrl = controller.from_settings(settings, mdformats)
-        app = http_api.get_app(settings.api_version, controller=ctrl)
+        app = http_api.get_app(settings.api_version, controller=ctrl, app_class=metrics.CDCAggWebApp)
+        app.add_handlers('.*', [('/metrics', metrics.CDCAggMetricsHandler)])
     except Exception:
         _logger.exception('Exception in application setup')
         raise
