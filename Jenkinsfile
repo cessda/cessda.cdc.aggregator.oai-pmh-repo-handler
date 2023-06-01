@@ -63,12 +63,10 @@ node(node_label) {
                 }
             }
             stage('Run Test Suite & Gather Coverage') {
-                withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
-                    sh """
-                    . ./${toxEnvName}/bin/activate
-                    tox -e with-coverage
-                    """
-                }
+                sh """
+                . ./${toxEnvName}/bin/activate
+                tox -e with-coverage
+                """
             }
             stage('Publish Cobertura Report') {
                 cobertura(coberturaReportFile: "${coverage_xml_path}",
@@ -85,16 +83,14 @@ node(node_label) {
         docker.image('python:3.9').inside('-u root') {
             stage('Prepare Pylint Venv') {
                 if (!fileExists(pylintEnvName)) {
-                    withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
-                        sh """
-                        python -m venv ${pylintEnvName}
-                        . ./${pylintEnvName}/bin/activate
-                        pip install --upgrade pip
-                        pip install -r ./requirements.txt
-                        pip install .
-                        pip install pylint
-                        """
-                    }
+                    sh """
+                    python -m venv ${pylintEnvName}
+                    . ./${pylintEnvName}/bin/activate
+                    pip install --upgrade pip
+                    pip install -r ./requirements.txt
+                    pip install .
+                    pip install pylint
+                    """
                 }
             }
             stage('Run PyLint') {
@@ -126,12 +122,10 @@ node(node_label) {
                 }
             }
             stage('Run Tests') {
-                withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
-                    sh """
-                    . ./${toxEnvName}/bin/activate
-                    tox -e py38
-                    """
-                }
+                sh """
+                . ./${toxEnvName}/bin/activate
+                tox -e py38
+                """
             }
             stage('Clean up tox-env') {
                 if (fileExists(toxEnvName)) {
@@ -164,12 +158,10 @@ node(node_label) {
                 }
             }
             stage('Run Tests') {
-                withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
-                    sh """
-                    . ./${toxEnvName}/bin/activate
-                    tox -e py310
-                    """
-                }
+                sh """
+                . ./${toxEnvName}/bin/activate
+                tox -e py310
+                """
             }
             stage('Clean up tox-env') {
                 if (fileExists(toxEnvName)) {
@@ -185,9 +177,7 @@ node(node_label) {
         parallel tasks_3
         stage('Build docker image') {
             withEnv(['DOCKER_BUILDKIT=1']) {
-                withCredentials([usernameColonPassword(credentialsId: 'cdc4d5cd-f858-4d77-86d4-ecbdb8b8f267', variable: 'BBCREDS')]) {
-                    sh "docker build -t ${image_tag} --secret id=bbcreds,env=BBCREDS ."
-                }
+                sh "docker build -t ${image_tag} --secret id=bbcreds,env=BBCREDS ."
             }
         }
         if (env.BRANCH_NAME == 'main') {
