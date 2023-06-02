@@ -16,6 +16,7 @@ Handle command line arguments, application setup, discovery & load of plugins,
 server startup and critical exception logging.
 """
 import logging
+from tornado.httputil import HTTPServerRequest
 from py12flogging.log_formatter import (
     set_ctx_populator,
     setup_app_logging
@@ -86,6 +87,9 @@ def main():
     try:
         ctrl = controller.from_settings(settings, mdformats)
         app = http_api.get_app(settings.api_version, controller=ctrl, app_class=metrics.CDCAggWebApp)
+        # Dynamically resolve handler for oai requests
+        app.set_oai_route_handler_class(app.find_handler(
+            HTTPServerRequest('GET', f'/{settings.api_version}/oai')).handler_class)
         app.add_handlers('.*', [('/metrics', metrics.CDCAggMetricsHandler)])
     except Exception:
         _logger.exception('Exception in application setup')
