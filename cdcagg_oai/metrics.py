@@ -24,15 +24,17 @@ worker processes.
 For more information, see the prometheus client docs
 (https://github.com/prometheus/client_python#multiprocess-mode-eg-gunicorn).
 """
-
+import os.path
 from prometheus_client import (
-    Gauge,
+    CollectorRegistry,
     Counter,
     REGISTRY,
     GC_COLLECTOR,
     PLATFORM_COLLECTOR,
     PROCESS_COLLECTOR,
 )
+from prometheus_client.multiprocess import MultiProcessCollector
+from prometheus_client.metrics import Gauge
 from prometheus_client.exposition import choose_encoder
 
 from kuha_common import server, query
@@ -44,23 +46,34 @@ REGISTRY.unregister(GC_COLLECTOR)
 REGISTRY.unregister(PLATFORM_COLLECTOR)
 REGISTRY.unregister(PROCESS_COLLECTOR)
 
-# Define Aggregator OAI-PMH metrics
-#
-# Service provider (Publisher) metrics
-metric_records_total = Gauge("records_total", "Total number of records included")
-metric_publishers_total = Gauge("publishers_total", "Total number of distinct publishers")
-metric_publishers_counts = Gauge("publishers_counts", "Number of records included per Publisher", ["publisher"])
-# Requests metrics
-metric_external_catalogue_requests = Counter(
-    "external_catalogue_requests", "Total number of external catalogue requests received"
-)
-metric_external_catalogue_requests_per_harvester = Counter(
+
+# Define Aggregator OAI-PMH metrics - requests metrics
+MET_CAT_REQ = Counter("external_catalogue_requests",
+                      "Total number of external catalogue requests received")
+MET_CAT_REQ_PER_AGENT = Counter(
     "external_catalogue_requests_per_harvester",
     "Number of external catalogue requests received per harvester", ["harvester"])
-metric_successful_catalogue_requests = Counter("successful_catalogue_requests",
-                                               "Number of successful external catalogue requests")
-metric_unsuccessful_catalogue_requests = Counter("unsuccessful_catalogue_requests",
-                                                 "Number of unsuccessful external catalogue requests")
+MET_CAT_REQ_SUCCESS = Counter("successful_catalogue_requests",
+                              "Number of successful external catalogue requests")
+MET_CAT_REQ_FAIL = Counter("unsuccessful_catalogue_requests",
+                           "Number of unsuccessful external catalogue requests")
+
+
+class _Gauge(Gauge):
+    _MULTIPROC_MODES = set(list(Gauge._MULTIPROC_MODES) + ['current'])
+
+
+def _file_filter(_file):
+    typ, mode, *_ = os.path.basename(_file).split('_')
+    return typ != 'gauge' and mode != 'current'
+
+
+class _MultiProcessCollector(MultiProcessCollector):
+
+    @staticmethod
+    def _read_metrics(files):
+        filter(_file_filter, files)
+        super()._read_metrics(files)
 
 
 class CDCAggMetricsHandler(server.RequestHandler):
@@ -73,6 +86,18 @@ class CDCAggMetricsHandler(server.RequestHandler):
     async def get(self):
         """HTTP GET handler for prometheus metrics
         """
+
+        registry = CollectorRegistry()
+        _MultiProcessCollector(registry)
+
+        # Define Aggregator OAI-PMH metrics - Service provider (Publisher) metrics
+        metric_records_total = _Gauge("records_total", "Total number of records included",
+                                      registry=registry, multiprocess_mode='current')
+        metric_publishers_total = _Gauge("publishers_total", "Total number of distinct publishers",
+                                         registry=registry, multiprocess_mode='current')
+        metric_publishers_counts = _Gauge("publishers_counts", "Number of records included per Publisher",
+                                          ["publisher"], registry=registry, multiprocess_mode='current')
+
         query_ctrl = query.QueryController(headers=self._correlation_id.as_header())
         # Total number of records included
         metric_records_total.set(await query_ctrl.query_count(Study))
@@ -93,7 +118,7 @@ class CDCAggMetricsHandler(server.RequestHandler):
         metric_publishers_total.set(publishers_total_count)
         encoder, content_type = choose_encoder(self.request.headers.get("accept"))
         self.set_header("Content-Type", content_type)
-        self.finish(encoder(REGISTRY))
+        self.finish(encoder(registry))
 
 
 class CDCAggWebApp(server.WebApplication):
@@ -125,10 +150,10 @@ class CDCAggWebApp(server.WebApplication):
             # requests to other endpoints are not considered
             # OAI-PMH harvesting requests.
             return
-        metric_external_catalogue_requests.inc()
-        metric_external_catalogue_requests_per_harvester.labels(
+        MET_CAT_REQ.inc()
+        MET_CAT_REQ_PER_AGENT.labels(
             harvester=handler.request.headers.get('User-Agent')).inc()
         if handler.get_status() < 300:
-            metric_successful_catalogue_requests.inc()
+            MET_CAT_REQ_SUCCESS.inc()
         else:
-            metric_unsuccessful_catalogue_requests.inc()
+            MET_CAT_REQ_FAIL.inc()
