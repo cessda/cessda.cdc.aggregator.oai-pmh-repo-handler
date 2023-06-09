@@ -24,7 +24,7 @@ worker processes.
 For more information, see the prometheus client docs
 (https://github.com/prometheus/client_python#multiprocess-mode-eg-gunicorn).
 """
-import os.path
+import os
 from prometheus_client import (
     CollectorRegistry,
     Counter,
@@ -47,33 +47,65 @@ REGISTRY.unregister(PLATFORM_COLLECTOR)
 REGISTRY.unregister(PROCESS_COLLECTOR)
 
 
-# Define Aggregator OAI-PMH metrics - requests metrics
-MET_CAT_REQ = Counter("external_catalogue_requests",
-                      "Total number of external catalogue requests received")
-MET_CAT_REQ_PER_AGENT = Counter(
-    "external_catalogue_requests_per_harvester",
-    "Number of external catalogue requests received per harvester", ["harvester"])
-MET_CAT_REQ_SUCCESS = Counter("successful_catalogue_requests",
-                              "Number of successful external catalogue requests")
-MET_CAT_REQ_FAIL = Counter("unsuccessful_catalogue_requests",
-                           "Number of unsuccessful external catalogue requests")
+_METRICS = {
+    # Define Aggregator OAI-PMH metrics - requests metrics
+    "cat_req": Counter("external_catalogue_requests", "Total number of external catalogue requests received"),
+    "cat_req_per_agent": Counter(
+        "external_catalogue_requests_per_harvester",
+        "Number of external catalogue requests received per harvester",
+        ["harvester"],
+    ),
+    "cat_req_success": Counter("successful_catalogue_requests", "Number of successful external catalogue requests"),
+    "cat_req_fail": Counter("unsuccessful_catalogue_requests", "Number of unsuccessful external catalogue requests"),
+    # Define Aggregator OAI-PMH metrics - Service provider (Publisher) metrics
+    "records_total": None,
+    "publishers_total": None,
+    "publishers_counts": None,
+    "registry": None
+}
 
 
 class _Gauge(Gauge):
-    _MULTIPROC_MODES = set(list(Gauge._MULTIPROC_MODES) + ['current'])
+    _MULTIPROC_MODES = set(list(Gauge._MULTIPROC_MODES) + ["current"])
 
 
 def _file_filter(_file):
-    typ, mode, *_ = os.path.basename(_file).split('_')
-    return typ != 'gauge' and mode != 'current'
+    typ, mode, *_ = os.path.basename(_file).split("_")
+    return typ != "gauge" and mode != "current"
 
 
 class _MultiProcessCollector(MultiProcessCollector):
-
     @staticmethod
     def _read_metrics(files):
         filter(_file_filter, files)
         super()._read_metrics(files)
+
+
+def _initialize_metrics_registry():
+    if not _METRICS["registry"]:
+        # prometheus-client does not allow setting
+        # 'PROMETHEUS_MULTIPROC_DIR' configuration option via other
+        # mechanisms than environment variable (see
+        # prometheus_client/values.py::get_value_class()).
+        if "PROMETHEUS_MULTIPROC_DIR" in os.environ:
+            registry = CollectorRegistry()
+            _MultiProcessCollector(registry)
+            _common_kwargs = {"multiprocess_mode": "current", "registry": registry}
+        else:
+            registry = REGISTRY
+            # The mode is not read at all when not using the MultiProcessCollector.
+            # Leaving it to the default value to improve future
+            # compatibility in case of changes in prometheus-client code.
+            _common_kwargs = {"registry": registry}
+        _METRICS["registry"] = registry
+        _METRICS["records_total"] = _Gauge("records_total", "Total number of records included", **_common_kwargs)
+        _METRICS["publishers_total"] = _Gauge("publishers_total", "Total number of distinct publishers",
+                                              **_common_kwargs)
+        _METRICS["publishers_counts"] = _Gauge(
+            "publishers_counts", "Number of records included per Publisher", ["publisher"], **_common_kwargs
+        )
+    return (_METRICS["registry"], _METRICS["records_total"],
+            _METRICS["publishers_total"], _METRICS["publishers_counts"])
 
 
 class CDCAggMetricsHandler(server.RequestHandler):
@@ -84,20 +116,13 @@ class CDCAggMetricsHandler(server.RequestHandler):
     """
 
     async def get(self):
-        """HTTP GET handler for prometheus metrics
-        """
-
-        registry = CollectorRegistry()
-        _MultiProcessCollector(registry)
-
-        # Define Aggregator OAI-PMH metrics - Service provider (Publisher) metrics
-        metric_records_total = _Gauge("records_total", "Total number of records included",
-                                      registry=registry, multiprocess_mode='current')
-        metric_publishers_total = _Gauge("publishers_total", "Total number of distinct publishers",
-                                         registry=registry, multiprocess_mode='current')
-        metric_publishers_counts = _Gauge("publishers_counts", "Number of records included per Publisher",
-                                          ["publisher"], registry=registry, multiprocess_mode='current')
-
+        """HTTP GET handler for prometheus metrics"""
+        (
+            registry,
+            metric_records_total,
+            metric_publishers_total,
+            metric_publishers_counts,
+        ) = _initialize_metrics_registry()
         query_ctrl = query.QueryController(headers=self._correlation_id.as_header())
         # Total number of records included
         metric_records_total.set(await query_ctrl.query_count(Study))
@@ -106,11 +131,17 @@ class CDCAggMetricsHandler(server.RequestHandler):
         distinct_base_urls = await query_ctrl.query_distinct(Study, fieldname=Study._provenance.attr_base_url)
         publishers_total_count = 0
         for base_url in distinct_base_urls[Study._provenance.attr_base_url.path]:
-            count = await query_ctrl.query_count(Study, _filter={
-                Study._provenance: {
-                    query.QueryController.fk_constants.elem_match: {
-                        Study._provenance.attr_base_url: base_url,
-                        Study._provenance.attr_direct: True}}})
+            count = await query_ctrl.query_count(
+                Study,
+                _filter={
+                    Study._provenance: {
+                        query.QueryController.fk_constants.elem_match: {
+                            Study._provenance.attr_base_url: base_url,
+                            Study._provenance.attr_direct: True,
+                        }
+                    }
+                },
+            )
             if count == 0:
                 continue
             publishers_total_count += 1
@@ -124,6 +155,7 @@ class CDCAggMetricsHandler(server.RequestHandler):
 class CDCAggWebApp(server.WebApplication):
     """Override the default WebApplication to control log_request
     method"""
+
     _oai_route_handler_class = None
 
     @classmethod
@@ -150,10 +182,9 @@ class CDCAggWebApp(server.WebApplication):
             # requests to other endpoints are not considered
             # OAI-PMH harvesting requests.
             return
-        MET_CAT_REQ.inc()
-        MET_CAT_REQ_PER_AGENT.labels(
-            harvester=handler.request.headers.get('User-Agent')).inc()
+        _METRICS["cat_req"].inc()
+        _METRICS["cat_req_per_agent"].labels(harvester=handler.request.headers.get("User-Agent")).inc()
         if handler.get_status() < 300:
-            MET_CAT_REQ_SUCCESS.inc()
+            _METRICS["cat_req_success"].inc()
         else:
-            MET_CAT_REQ_FAIL.inc()
+            _METRICS["cat_req_fail"].inc()
