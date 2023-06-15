@@ -50,14 +50,14 @@ REGISTRY.unregister(PROCESS_COLLECTOR)
 
 _METRICS = {
     # Define Aggregator OAI-PMH metrics - requests metrics
-    "cat_req": Counter("external_catalogue_requests", "Total number of external catalogue requests received"),
-    "cat_req_per_agent": Counter(
-        "external_catalogue_requests_per_harvester",
-        "Number of external catalogue requests received per harvester",
+    "requests_total": Counter("requests_total", "Total number of external catalogue requests received"),
+    "requests_per_user_agent": Counter(
+        "requests_per_user_agent",
+        "Number of external catalogue requests received per user-agent",
         ["harvester"],
     ),
-    "cat_req_success": Counter("successful_catalogue_requests", "Number of successful external catalogue requests"),
-    "cat_req_fail": Counter("unsuccessful_catalogue_requests", "Number of unsuccessful external catalogue requests"),
+    "requests_succeeded": Counter("requests_succeeded", "Number of successful catalogue requests"),
+    "requests_failed": Counter("requests_failed", "Number of failed catalogue requests"),
     # Define Aggregator OAI-PMH metrics - Service provider (Publisher) metrics
     "records_total": None,
     "records_total_without_deleted": None,
@@ -243,9 +243,9 @@ class CDCAggWebApp(server.WebApplication):
             # requests to other endpoints are not considered
             # OAI-PMH harvesting requests.
             return
-        _METRICS["cat_req"].inc()
-        _METRICS["cat_req_per_agent"].labels(harvester=handler.request.headers.get("User-Agent")).inc()
+        _METRICS["requests_total"].inc()
+        _METRICS["requests_per_user_agent"].labels(harvester=handler.request.headers.get("User-Agent")).inc()
         if handler.get_status() < 300:
-            _METRICS["cat_req_success"].inc()
+            _METRICS["requests_succeeded"].inc()
         else:
-            _METRICS["cat_req_fail"].inc()
+            _METRICS["requests_failed"].inc()
