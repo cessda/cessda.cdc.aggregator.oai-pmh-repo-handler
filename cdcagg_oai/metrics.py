@@ -79,9 +79,23 @@ def _file_filter(_file):
 
 class _MultiProcessCollector(MultiProcessCollector):
     @staticmethod
-    def _read_metrics(files):
-        filter(_file_filter, files)
-        super()._read_metrics(files)
+    def merge(files, accumulate=True):
+        """Override merge to apply :func:`_file_filter`
+
+        This method is called from
+        MultiProcessCollector.collect(). Files for Gauge metrics where
+        multiprocess mode is 'current' should be filtered out before
+        calling MultiProcessCollector._read_metrics(). Otherwise we
+        get metrics for each running python process, which makes no
+        sense to metrics that represent the current state of the
+        application data.
+
+        :param files: Iterable filepaths
+        :param accumulate: Set False to avoid compound accumulation (see overridden method)
+        :returns: Metrics values. See MultiProcessCollector._accumulate_metrics().
+        """
+        metrics = MultiProcessCollector._read_metrics(filter(_file_filter, files))
+        return MultiProcessCollector._accumulate_metrics(metrics, accumulate)
 
 
 def _initialize_metrics_registry():
