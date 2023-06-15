@@ -38,6 +38,7 @@ from prometheus_client.metrics import Gauge
 from prometheus_client.exposition import choose_encoder
 
 from kuha_common import server, query
+from kuha_common.document_store.constants import REC_STATUS_DELETED
 from cdcagg_common.records import Study
 
 
@@ -59,9 +60,11 @@ _METRICS = {
     "cat_req_fail": Counter("unsuccessful_catalogue_requests", "Number of unsuccessful external catalogue requests"),
     # Define Aggregator OAI-PMH metrics - Service provider (Publisher) metrics
     "records_total": None,
+    "records_total_without_deleted": None,
     "publishers_total": None,
     "publishers_counts": None,
-    "registry": None
+    "publishers_counts_without_deleted": None,
+    "registry": None,
 }
 
 
@@ -99,13 +102,31 @@ def _initialize_metrics_registry():
             _common_kwargs = {"registry": registry}
         _METRICS["registry"] = registry
         _METRICS["records_total"] = _Gauge("records_total", "Total number of records included", **_common_kwargs)
-        _METRICS["publishers_total"] = _Gauge("publishers_total", "Total number of distinct publishers",
-                                              **_common_kwargs)
+        _METRICS["records_total_without_deleted"] = _Gauge(
+            "records_total_without_deleted",
+            "Total number of records included without logically deleted records",
+            **_common_kwargs
+        )
+        _METRICS["publishers_total"] = _Gauge(
+            "publishers_total", "Total number of distinct publishers", **_common_kwargs
+        )
         _METRICS["publishers_counts"] = _Gauge(
             "publishers_counts", "Number of records included per Publisher", ["publisher"], **_common_kwargs
         )
-    return (_METRICS["registry"], _METRICS["records_total"],
-            _METRICS["publishers_total"], _METRICS["publishers_counts"])
+        _METRICS["publishers_counts_without_deleted"] = _Gauge(
+            "publishers_counts_without_deleted",
+            "Number of records included per Publisher without logically deleted records",
+            ["publisher"],
+            **_common_kwargs
+        )
+    return (
+        _METRICS["registry"],
+        _METRICS["records_total"],
+        _METRICS["records_total_without_deleted"],
+        _METRICS["publishers_total"],
+        _METRICS["publishers_counts"],
+        _METRICS["publishers_counts_without_deleted"],
+    )
 
 
 class CDCAggMetricsHandler(server.RequestHandler):
@@ -120,12 +141,20 @@ class CDCAggMetricsHandler(server.RequestHandler):
         (
             registry,
             metric_records_total,
+            metric_records_total_without_deleted,
             metric_publishers_total,
             metric_publishers_counts,
+            metric_publishers_counts_without_deleted,
         ) = _initialize_metrics_registry()
         query_ctrl = query.QueryController(headers=self._correlation_id.as_header())
         # Total number of records included
         metric_records_total.set(await query_ctrl.query_count(Study))
+        # Total number of records included without deleted ones
+        metric_records_total_without_deleted.set(
+            await query_ctrl.query_count(
+                Study, _filter={Study._metadata.attr_status: {query_ctrl.fk_constants.not_equal: REC_STATUS_DELETED}}
+            )
+        )
         # Number of Publishers (Service Providers) included and
         # Number of records included per Publisher
         distinct_base_urls = await query_ctrl.query_distinct(Study, fieldname=Study._provenance.attr_base_url)
@@ -143,9 +172,27 @@ class CDCAggMetricsHandler(server.RequestHandler):
                 },
             )
             if count == 0:
+                # The base_url is not the direct source
                 continue
             publishers_total_count += 1
             metric_publishers_counts.labels(publisher=base_url).set(count)
+            count_sans_deleted = await query_ctrl.query_count(
+                Study,
+                _filter={
+                    query_ctrl.fk_constants.and_: [
+                        {
+                            Study._provenance: {
+                                query.QueryController.fk_constants.elem_match: {
+                                    Study._provenance.attr_base_url: base_url,
+                                    Study._provenance.attr_direct: True,
+                                }
+                            }
+                        },
+                        {Study._metadata.attr_status: {query_ctrl.fk_constants.not_equal: REC_STATUS_DELETED}},
+                    ]
+                },
+            )
+            metric_publishers_counts_without_deleted.labels(publisher=base_url).set(count_sans_deleted)
         metric_publishers_total.set(publishers_total_count)
         encoder, content_type = choose_encoder(self.request.headers.get("accept"))
         self.set_header("Content-Type", content_type)
