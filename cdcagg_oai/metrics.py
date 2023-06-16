@@ -27,14 +27,15 @@ For more information, see the prometheus client docs
 import os
 from prometheus_client import (
     CollectorRegistry,
+    Gauge,
     Counter,
+    Summary,
     REGISTRY,
     GC_COLLECTOR,
     PLATFORM_COLLECTOR,
     PROCESS_COLLECTOR,
 )
 from prometheus_client.multiprocess import MultiProcessCollector
-from prometheus_client.metrics import Gauge
 from prometheus_client.exposition import choose_encoder
 
 from kuha_common import server, query
@@ -58,6 +59,7 @@ _METRICS = {
     ),
     "requests_succeeded": Counter("requests_succeeded", "Number of successful catalogue requests"),
     "requests_failed": Counter("requests_failed", "Number of failed catalogue requests"),
+    "requests_duration": Summary("requests_duration", "Response time in milliseconds", ["verb", "metadataPrefix"]),
     # Define Aggregator OAI-PMH metrics - Service provider (Publisher) metrics
     "records_total": None,
     "records_total_without_deleted": None,
@@ -247,5 +249,12 @@ class CDCAggWebApp(server.WebApplication):
         _METRICS["requests_per_user_agent"].labels(harvester=handler.request.headers.get("User-Agent")).inc()
         if handler.get_status() < 300:
             _METRICS["requests_succeeded"].inc()
+            if not handler.oai_protocol.response.context["error"]:
+                # If the response is an oai error, the duration
+                # probably should not be mixed with succesfull oai responses.
+                _METRICS["requests_duration"].labels(
+                    verb=handler.oai_protocol.arguments.verb,
+                    metadataPrefix=handler.oai_protocol.arguments.metadata_prefix,
+                ).observe(1000.0 * handler.request.request_time())
         else:
             _METRICS["requests_failed"].inc()
