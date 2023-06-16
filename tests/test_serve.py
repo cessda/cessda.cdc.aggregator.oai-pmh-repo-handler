@@ -94,6 +94,47 @@ class TestConfigure(KuhaUnitTestCase):
             prog='cdcagg_oai', package='cdcagg_oai', env_var_prefix='CDCAGG_')
 
 
+@mock.patch.object(serve.server, 'serve')
+@mock.patch.object(serve, 'configure')
+@mock.patch.object(serve.controller, 'from_settings')
+class TestMain(KuhaUnitTestCase):
+
+    @mock.patch.object(serve.http_api, 'get_app')
+    def test_calls_http_api_get_app_with_app_class_param(self,
+                                                         mock_get_app,
+                                                         mock_from_settings,
+                                                         mock_configure,
+                                                         mock_serve):
+        mock_configure.return_value = Namespace(
+            print_configuration=False, api_version='v0', port=6003)
+        serve.main()
+        mock_get_app.assert_called_once_with(
+            'v0', controller=mock_from_settings.return_value, app_class=serve.metrics.CDCAggWebApp)
+
+    @mock.patch.object(serve.metrics.CDCAggWebApp, 'set_oai_route_handler_class')
+    def test_calls_app_set_oai_route_handler_class(self,
+                                                   mock_set_oai_route_handler_class,
+                                                   mock_from_settings,
+                                                   mock_configure,
+                                                   mock_serve):
+        mock_from_settings.return_value = mock.Mock(stylesheet_url='/v0/oai/static/oai2.xsl')
+        mock_configure.return_value = Namespace(
+            print_configuration=False, api_version='v0', port=6003)
+        serve.main()
+        mock_set_oai_route_handler_class.assert_called_once_with(serve.http_api.OAIRouteHandler)
+
+    @mock.patch.object(serve.metrics.CDCAggWebApp, 'add_handlers')
+    def test_calls_app_add_handlers(self,
+                                    mock_add_handlers,
+                                    mock_from_settings,
+                                    mock_configure,
+                                    mock_serve):
+        mock_configure.return_value = Namespace(
+            print_configuration=False, api_version='v0', port=6003)
+        serve.main()
+        mock_add_handlers.assert_called_once_with('.*', [('/metrics', serve.metrics.CDCAggMetricsHandler)])
+
+
 def _query_single(result):
     async def _inner_query_single(record, on_record, **_discard):
         await on_record(result)
