@@ -25,7 +25,7 @@ from kuha_oai_pmh_repo_handler.oai.constants import (
     OAI_RESPOND_WITH_REQ_URL,
     OAI_REPO_NAME
 )
-
+from kuha_oai_pmh_repo_handler import metadataformats as kuha_metadataformats
 from cdcagg_oai import serve, metadataformats
 
 
@@ -37,6 +37,14 @@ def isolate_oai_pmh_route_handler_class():
 
     def _reset():
         serve.metrics.CDCAggWebApp._oai_route_handler_class = copy_initial_oai_route_handler_class
+    return _reset
+
+
+def isolate_kuha_metadataformats_storage():
+    stored = dict(kuha_metadataformats._STORED)
+
+    def _reset():
+        kuha_metadataformats._STORED = stored
     return _reset
 
 
@@ -101,7 +109,7 @@ class CDCAggOAIHTTPTestBase(AsyncHTTPTestCase):
 
     def setUp(self):
         self._patchers = []
-        self._resets = [isolate_oai_pmh_route_handler_class()]
+        self._resets = [isolate_oai_pmh_route_handler_class(), isolate_kuha_metadataformats_storage()]
         super().setUp()
 
     def tearDown(self):
