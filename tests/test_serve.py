@@ -11,33 +11,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os.path
 import datetime
 from argparse import Namespace
 from xml.etree import ElementTree
 from inspect import iscoroutinefunction
 from unittest import mock
-from tornado.testing import AsyncHTTPTestCase
+
 from kuha_common.testing import mock_coro
 from kuha_common.testing.testcases import KuhaUnitTestCase
 from kuha_common.document_store.constants import REC_STATUS_DELETED
-from kuha_common.document_store import (
-    query,
-    client
-)
-from kuha_oai_pmh_repo_handler.oai.constants import (
-    OAI_REC_NAMESPACE_IDENTIFIER,
-    OAI_RESPONSE_LIST_SIZE,
-    OAI_PROTOCOL_VERSION,
-    OAI_RESPOND_WITH_REQ_URL,
-    OAI_REPO_NAME
-)
+
 from kuha_oai_pmh_repo_handler import metadataformats as kuha_metadataformats
 from cdcagg_common.records import Study
-from cdcagg_oai import (
-    serve,
-    metadataformats
-)
+from cdcagg_oai import serve
+from . import isolate_oai_pmh_route_handler_class, CDCAggOAIHTTPTestBase
+
 
 API_VERSION = 'v0'
 OAI_URL = '/' + API_VERSION + '/oai'
@@ -98,6 +86,10 @@ class TestConfigure(KuhaUnitTestCase):
 @mock.patch.object(serve, 'configure')
 @mock.patch.object(serve.controller, 'from_settings')
 class TestMain(KuhaUnitTestCase):
+
+    def setUp(self):
+        super().setUp()
+        self._resets.append(isolate_oai_pmh_route_handler_class())
 
     @mock.patch.object(serve.http_api, 'get_app')
     def test_calls_http_api_get_app_with_app_class_param(self,
@@ -163,93 +155,7 @@ class FakeDatetime(datetime.datetime):
         return cls(2019, 12, 12, 7, 14, 37, 685563)
 
 
-class _Base(AsyncHTTPTestCase):
-
-    _settings = None
-
-    @classmethod
-    def settings(cls, **kw):
-        if cls._settings is not None:
-            raise ValueError("_settings is already defined.")
-        cls._settings = Namespace(
-            document_store_url=kw.get('document_store_url',
-                                      query.DEFAULT_DOCSTORE_URL),
-            document_store_client_max_clients=kw.get('document_store_max_clients',
-                                                     client.DS_CLIENT_MAX_CLIENTS),
-            document_store_client_connect_timeout=kw.get('document_store_client_connect_timeout',
-                                                         client.DS_CLIENT_CONNECT_TIMEOUT),
-            document_store_client_request_timeout=kw.get('document_store_client_request_timeout',
-                                                         client.DS_CLIENT_REQUEST_TIMEOUT),
-            oai_pmh_respond_with_requested_url=kw.get('oai_pmh_respond_with_requested_url',
-                                                      OAI_RESPOND_WITH_REQ_URL),
-            oai_pmh_repo_name=kw.get('oai_pmh_repo_name',
-                                     OAI_REPO_NAME),
-            oai_pmh_protocol_version=kw.get('oai_pmh_protocol_version',
-                                            OAI_PROTOCOL_VERSION),
-            oai_pmh_list_size_oai_dc=kw.get('oai_pmh_list_size_oai_dc',
-                                            OAI_RESPONSE_LIST_SIZE),
-            oai_pmh_list_size_oai_ddi25=kw.get('oai_pmh_list_size_oai_ddi25',
-                                               OAI_RESPONSE_LIST_SIZE),
-            oai_pmh_list_size_oai_datacite=kw.get('oai_pmh_list_size_oai_datacite',
-                                                  OAI_RESPONSE_LIST_SIZE),
-            oai_set_sources_path=kw.get('oai_set_sources_path',
-                                        os.path.abspath(
-                                            os.path.join(
-                                                os.path.dirname(os.path.realpath(__file__)),
-                                                'data', 'sources_definitions.yaml'))),
-            oai_set_configurable_path=kw.get('oai_set_configurable_path',
-                                             os.path.abspath(
-                                                 os.path.join(
-                                                     os.path.dirname(os.path.realpath(__file__)),
-                                                     'data', 'configurable_sets.yaml'))),
-            oai_pmh_namespace_identifier=kw.get('oai_pmh_namespace_identifier',
-                                                OAI_REC_NAMESPACE_IDENTIFIER),
-            oai_pmh_deleted_records=kw.get('oai_pmh_deleted_records',
-                                           metadataformats.MDFormat._deleted_records_default),
-            oai_pmh_base_url=kw.get('oai_pmh_base_url',
-                                    'base'),
-            oai_pmh_admin_email=kw.get('oai_pmh_admin_email',
-                                       'email'),
-            oai_pmh_stylesheet_url=kw.get('oai_pmh_stylesheet_url',
-                                          '/v0/oai/static/oai2.xsl'),
-            template_folder=kw.get(
-                'template_folder',
-                metadataformats.AggMetadataFormatBase.default_template_folders))
-        return cls._settings
-
-    @classmethod
-    def _clear_settings(cls):
-        cls._settings = None
-
-    def setUp(self):
-        self._patchers = []
-        super().setUp()
-
-    def tearDown(self):
-        for patcher in self._patchers:
-            patcher.stop()
-        self._clear_settings()
-        defaults = self.settings()
-        client.configure(defaults)
-        query.configure(defaults)
-        self._clear_settings()
-
-    def _init_patcher(self, patcher):
-        mocked = patcher.start()
-        self._patchers.append(patcher)
-        return mocked
-
-    def get_app(self):
-        if self._settings is None:
-            self.settings()
-        mdformats = serve.load_metadataformats('cdcagg.oai.metadataformats')
-        for mdf in mdformats:
-            mdf.configure(self._settings)
-        ctrl = serve.controller.from_settings(self._settings, mdformats)
-        return serve.http_api.get_app(API_VERSION, controller=ctrl)
-
-
-class TestHTTPResponses(_Base):
+class TestHTTPResponses(CDCAggOAIHTTPTestBase):
 
     def setUp(self):
         super().setUp()
@@ -1161,7 +1067,6 @@ class TestHTTPResponses(_Base):
                                      {'somecountry': 'en',
                                       'jokumaa': 'fi'})
 
-
     # // TEST OAI DC
 
     # LISTSETS
@@ -1282,7 +1187,7 @@ class TestHTTPResponses(_Base):
 
 @mock.patch('kuha_oai_pmh_repo_handler.oai.protocol.datetime.datetime',
             FakeDatetime, spec=datetime.datetime)
-class TestQueries(_Base):
+class TestQueries(CDCAggOAIHTTPTestBase):
 
     maxDiff = None
 
@@ -1440,18 +1345,18 @@ class TestQueries(_Base):
             'data_collection_copyrights'])
 
 
-class TestConfigurations(_Base):
+class TestConfigurations(CDCAggOAIHTTPTestBase):
 
     def setUp(self):
         self._stored = dict(kuha_metadataformats._STORED)
         self.settings(oai_pmh_deleted_records='persistent')
         super().setUp()
+
+        def _reset():
+            kuha_metadataformats._STORED = self._stored
+        self._resets.append(_reset)
         self._mock_query_single = self._init_patcher(mock.patch(
             'kuha_common.query.QueryController.query_single'))
-
-    def tearDown(self):
-        kuha_metadataformats._STORED = self._stored
-        super().tearDown()
 
     # IDENTIFY
 
@@ -1470,7 +1375,7 @@ def get_line(sbuffer, lineno):
         next(sbuffer)
 
 
-class TestNoXMLStylesheet(_Base):
+class TestNoXMLStylesheet(CDCAggOAIHTTPTestBase):
     """Make sure XML Stylesheet is included
 
     CDCAGG OAI-PMH contains two templates that are not from Kuha2:
@@ -1517,6 +1422,7 @@ class TestNoXMLStylesheet(_Base):
         self._mock_query_count.side_effect = mock_coro(1)
         self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple({'studies': [_study_for_oaidc()]}))
         self._assert_method(self.fetch(OAI_URL + '?verb=ListRecords&metadataPrefix=oai_dc'))
+
 
 class TestHasXMLStylesheet(TestNoXMLStylesheet):
 
