@@ -159,6 +159,7 @@ class TestMultiProcessCollector(TestCase):
         self.assertEqual(rval, mock_accumulate_metrics.return_value)
 
 
+@mock.patch.object(metrics, "_Gauge")
 class TestInitializeMetricsRegistry(TestCase):
     def setUp(self):
         super().setUp()
@@ -172,7 +173,7 @@ class TestInitializeMetricsRegistry(TestCase):
     @mock.patch.object(metrics, "_MultiProcessCollector")
     @mock.patch.object(metrics.os, "environ", new={"PROMETHEUS_MULTIPROC_DIR": "/some/dir"})
     def test_initializes_MultiProcessCollector_if_environ_has_PROMETHEUS_MULTIPROC_DIR(
-        self, mock_MultiProcessCollector, mock_CollectorRegistry
+        self, mock_MultiProcessCollector, mock_CollectorRegistry, mock_Gauge
     ):
         metrics._initialize_metrics_registry()
         mock_MultiProcessCollector.assert_called_once_with(mock_CollectorRegistry.return_value)
@@ -180,17 +181,16 @@ class TestInitializeMetricsRegistry(TestCase):
     @mock.patch.object(metrics, "_MultiProcessCollector")
     @mock.patch.object(metrics.os, "environ", new={})
     def test_does_not_initialize_MultiProcessCollector_if_environ_does_not_have_PROMETHEUS_MULTIPROC_DIR(
-        self, mock_MultiProcessCollector
+        self, mock_MultiProcessCollector, mock_Gauge
     ):
         metrics._initialize_metrics_registry()
         mock_MultiProcessCollector.assert_not_called()
 
     @mock.patch.object(metrics, "CollectorRegistry")
     @mock.patch.object(metrics, "_MultiProcessCollector")
-    @mock.patch.object(metrics, "_Gauge")
     @mock.patch.object(metrics.os, "environ", new={"PROMETHEUS_MULTIPROC_DIR": "/some/dir"})
     def test_passes_correct_args_to_Gauges_if_environ_has_PROMETHEUS_MULTIPROC_DIR(
-        self, mock_Gauge, mock_MultiProcessCollector, mock_CollectorRegistry
+        self,  mock_MultiProcessCollector, mock_CollectorRegistry, mock_Gauge
     ):
         metrics._initialize_metrics_registry()
         self.assertEqual(mock_Gauge.call_count, 5)
@@ -231,7 +231,6 @@ class TestInitializeMetricsRegistry(TestCase):
             ]
         )
 
-    @mock.patch.object(metrics, "_Gauge")
     @mock.patch.object(metrics.os, "environ", new={})
     def test_passes_correct_args_to_Gauges_if_environ_does_not_have_PROMETHEUS_MULTIPROC_DIR(self, mock_Gauge):
         metrics._initialize_metrics_registry()
