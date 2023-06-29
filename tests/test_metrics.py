@@ -157,3 +157,149 @@ class TestMultiProcessCollector(TestCase):
     def test_merge_returns_accumulate_metrics_return_value(self, mock_accumulate_metrics, mock_read_metrics):
         rval = metrics._MultiProcessCollector.merge(["file1", "file2"])
         self.assertEqual(rval, mock_accumulate_metrics.return_value)
+
+
+class TestInitializeMetricsRegistry(TestCase):
+    def setUp(self):
+        super().setUp()
+        self._stored_metrics = dict(metrics._METRICS)
+
+    def tearDown(self):
+        metrics._METRICS = self._stored_metrics
+        super().tearDown()
+
+    @mock.patch.object(metrics, "CollectorRegistry")
+    @mock.patch.object(metrics, "_MultiProcessCollector")
+    @mock.patch.object(metrics.os, "environ", new={"PROMETHEUS_MULTIPROC_DIR": "/some/dir"})
+    def test_initializes_MultiProcessCollector_if_environ_has_PROMETHEUS_MULTIPROC_DIR(
+        self, mock_MultiProcessCollector, mock_CollectorRegistry
+    ):
+        metrics._initialize_metrics_registry()
+        mock_MultiProcessCollector.assert_called_once_with(mock_CollectorRegistry.return_value)
+
+    @mock.patch.object(metrics, "_MultiProcessCollector")
+    @mock.patch.object(metrics.os, "environ", new={})
+    def test_does_not_initialize_MultiProcessCollector_if_environ_does_not_have_PROMETHEUS_MULTIPROC_DIR(
+        self, mock_MultiProcessCollector
+    ):
+        metrics._initialize_metrics_registry()
+        mock_MultiProcessCollector.assert_not_called()
+
+    @mock.patch.object(metrics, "CollectorRegistry")
+    @mock.patch.object(metrics, "_MultiProcessCollector")
+    @mock.patch.object(metrics, "_Gauge")
+    @mock.patch.object(metrics.os, "environ", new={"PROMETHEUS_MULTIPROC_DIR": "/some/dir"})
+    def test_passes_correct_args_to_Gauges_if_environ_has_PROMETHEUS_MULTIPROC_DIR(
+        self, mock_Gauge, mock_MultiProcessCollector, mock_CollectorRegistry
+    ):
+        metrics._initialize_metrics_registry()
+        self.assertEqual(mock_Gauge.call_count, 5)
+        mock_Gauge.assert_has_calls(
+            [
+                mock.call(
+                    "records_total",
+                    "Total number of records included",
+                    multiprocess_mode="current",
+                    registry=mock_CollectorRegistry.return_value,
+                ),
+                mock.call(
+                    "records_total_without_deleted",
+                    "Total number of records included without logically deleted records",
+                    multiprocess_mode="current",
+                    registry=mock_CollectorRegistry.return_value,
+                ),
+                mock.call(
+                    "publishers_total",
+                    "Total number of distinct publishers",
+                    multiprocess_mode="current",
+                    registry=mock_CollectorRegistry.return_value,
+                ),
+                mock.call(
+                    "publishers_counts",
+                    "Number of records included per Publisher",
+                    ["publisher"],
+                    multiprocess_mode="current",
+                    registry=mock_CollectorRegistry.return_value,
+                ),
+                mock.call(
+                    "publishers_counts_without_deleted",
+                    "Number of records included per Publisher without logically deleted records",
+                    ["publisher"],
+                    multiprocess_mode="current",
+                    registry=mock_CollectorRegistry.return_value,
+                ),
+            ]
+        )
+
+    @mock.patch.object(metrics, "_Gauge")
+    @mock.patch.object(metrics.os, "environ", new={})
+    def test_passes_correct_args_to_Gauges_if_environ_does_not_have_PROMETHEUS_MULTIPROC_DIR(self, mock_Gauge):
+        metrics._initialize_metrics_registry()
+        self.assertEqual(mock_Gauge.call_count, 5)
+        mock_Gauge.assert_has_calls(
+            [
+                mock.call(
+                    "records_total",
+                    "Total number of records included",
+                    registry=metrics.REGISTRY,
+                ),
+                mock.call(
+                    "records_total_without_deleted",
+                    "Total number of records included without logically deleted records",
+                    registry=metrics.REGISTRY,
+                ),
+                mock.call(
+                    "publishers_total",
+                    "Total number of distinct publishers",
+                    registry=metrics.REGISTRY,
+                ),
+                mock.call(
+                    "publishers_counts",
+                    "Number of records included per Publisher",
+                    ["publisher"],
+                    registry=metrics.REGISTRY,
+                ),
+                mock.call(
+                    "publishers_counts_without_deleted",
+                    "Number of records included per Publisher without logically deleted records",
+                    ["publisher"],
+                    registry=metrics.REGISTRY,
+                ),
+            ]
+        )
+
+
+class TestCDCAggWebApp(TestCase):
+    def setUp(self):
+        super().setUp()
+        self._stored_class = metrics.CDCAggWebApp._oai_route_handler_class
+        self._stored_metrics = dict(metrics._METRICS)
+
+    def tearDown(self):
+        metrics.CDCAggWebApp._oai_route_handler_class = self._stored_class
+        metrics._METRICS = self._stored_metrics
+        super().tearDown()
+
+    def test_set_oai_route_handler_class_sets_oai_route_handler_class(self):
+        self.assertEqual(metrics.CDCAggWebApp._oai_route_handler_class, None)
+        metrics.CDCAggWebApp.set_oai_route_handler_class("some_class")
+        self.assertEqual(metrics.CDCAggWebApp._oai_route_handler_class, "some_class")
+
+    def test_set_oai_route_handler_class_sets_raises_ValueError_if_already_set(self):
+        metrics.CDCAggWebApp.set_oai_route_handler_class("some_class")
+        with self.assertRaises(ValueError):
+            metrics.CDCAggWebApp.set_oai_route_handler_class("another_class")
+
+    @mock.patch.object(metrics.server.WebApplication, "log_request")
+    def test_log_request_increments_requests_failed_if_handler_get_status_returns_300_or_more(self, mock_log_request):
+        mock_handler = mock.Mock()
+        metrics.CDCAggWebApp.set_oai_route_handler_class(mock_handler.__class__)
+        app = metrics.CDCAggWebApp()
+        mock_requests_failed_metric = mock.Mock()
+        metrics._METRICS["requests_failed"] = mock_requests_failed_metric
+        for status_code in (300, 301, 400, 500):
+            mock_handler.get_status.return_value = status_code
+            with self.subTest(status_code=status_code):
+                app.log_request(mock_handler)
+                mock_requests_failed_metric.inc.assert_called_once_with()
+            mock_requests_failed_metric.reset_mock()
