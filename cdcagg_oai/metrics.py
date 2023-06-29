@@ -76,7 +76,7 @@ class _Gauge(Gauge):
 
 def _file_filter(_file):
     typ, mode, *_ = os.path.basename(_file).split("_")
-    return typ != "gauge" and mode != "current"
+    return typ != "gauge" or mode != "current"
 
 
 class _MultiProcessCollector(MultiProcessCollector):

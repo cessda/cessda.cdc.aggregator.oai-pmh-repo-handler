@@ -1,11 +1,19 @@
-"""Test /metrics endpoint
+"""Test /metrics endpoint & module internals
 """
-from unittest import mock
+from unittest import mock, TestCase
 from cdcagg_common import Study
+from cdcagg_oai import metrics
 from . import CDCAggOAIHTTPTestBase
 
 
+# ###################### #
+# Test /metrics endpoint #
+# ###################### #
+
+
 class TestMetricsEndpoint(CDCAggOAIHTTPTestBase):
+    """Test /metrics endpoint with HTTP Requests"""
+
     maxDiff = None
 
     def setUp(self):
@@ -111,3 +119,41 @@ class TestMetricsEndpoint(CDCAggOAIHTTPTestBase):
         self.assertIn(
             'publishers_counts_without_deleted{publisher="some.base.url"} 30.0', self._fetch_resp_body_lines()
         )
+
+
+# ################################### #
+# Unittests against metrics.py module #
+# ################################### #
+
+
+@mock.patch.object(metrics.MultiProcessCollector, "_read_metrics")
+@mock.patch.object(metrics.MultiProcessCollector, "_accumulate_metrics")
+class TestMultiProcessCollector(TestCase):
+    """Unittests against metrics._MultiProcessCollector"""
+
+    def test_merge_calls_read_metrics_with_filtered_files(self, mock_accumulate_metrics, mock_read_metrics):
+        files = [
+            "/path/to/gauge_all_1.db",
+            "/path/to/gauge_current_1.db",
+            "/path/to/gauge_current_2.db",
+            "/path/to/counter_1.db",
+            "/path/to/counter_current_1.db",
+        ]
+        metrics._MultiProcessCollector.merge(files)
+        self.assertEqual(mock_read_metrics.call_count, 1)
+        call_files_iterable = mock_read_metrics.call_args_list[0][0][0]
+        self.assertEqual(
+            list(call_files_iterable),
+            ["/path/to/gauge_all_1.db", "/path/to/counter_1.db", "/path/to/counter_current_1.db"],
+        )
+
+    def test_merge_calls_accumulate_metrics_correctly(self, mock_accumulate_metrics, mock_read_metrics):
+        for accumulate in (True, False):
+            with self.subTest(accumulate=accumulate):
+                metrics._MultiProcessCollector.merge(["file1", "file2"], accumulate=accumulate)
+                mock_accumulate_metrics.assert_called_once_with(mock_read_metrics.return_value, accumulate)
+            mock_accumulate_metrics.reset_mock()
+
+    def test_merge_returns_accumulate_metrics_return_value(self, mock_accumulate_metrics, mock_read_metrics):
+        rval = metrics._MultiProcessCollector.merge(["file1", "file2"])
+        self.assertEqual(rval, mock_accumulate_metrics.return_value)
