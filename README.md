@@ -48,6 +48,30 @@ The following metadata formats are supported:
   - DDI 2.5 using metadataprefix ``oai_ddi25``.
   - OpenAIRE Datacite using metadataprefix ``oai_datacite``.
 
+The application exposes a /metrics endpoint, which provides certain
+statistics about the running instance of the application. This
+endpoint is provided by
+[prometheus-client](https://github.com/prometheus/client_python). Following
+metrics are exposed:
+
+  - Total number of external catalogue requests received counter via
+    `requests_total`.
+  - Number of external catalogue requests received per user-agent
+    counter `requests_per_user_agent_total`.
+  - Number of successful catalogue requests counter via
+    `requests_succeeded_total`.
+  - Number of failed catalogue requests counter via
+    `requests_failed_total`.
+  - Response time in milliseconds summary via `requests_duration`.
+  - Total number of records included gauge via `records_total`.
+  - Total number of records included without logically deleted records
+    gauge via `records_total_without_deleted`.
+  - Total number of distinct publishers gauge via `publishers_total`.
+  - Number of records included per Publisher gauge via
+    `publishers_counts`.
+  - Number of records included per Publisher without logically deleted
+    records gauge via `publishers_counts_without_deleted`.
+
 
 ## Requirements ##
 
@@ -128,6 +152,10 @@ python -m cdcagg_oai --help
 
 Note that most configuration options can be specified via command line
 arguments, configuration file options and environment variables.
+
+[Prometheus client](https://github.com/prometheus/client_python)
+provides additional configuration. Refer to its documentation for more
+information.
 
 
 ## Build OAI sets based on source endpoint ##
