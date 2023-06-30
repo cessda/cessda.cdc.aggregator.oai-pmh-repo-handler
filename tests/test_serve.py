@@ -79,19 +79,31 @@ def _study_for_oaidc():
     return study
 
 
+@mock.patch.object(serve, 'conf')
+@mock.patch.object(serve.controller, 'add_cli_args')
+@mock.patch.object(serve.server, 'add_cli_args')
+@mock.patch.object(serve, 'set_ctx_populator')
+@mock.patch.object(serve.server, 'configure')
+@mock.patch.object(serve, 'setup_app_logging')
 class TestConfigure(KuhaUnitTestCase):
-
-    @mock.patch.object(serve, 'conf')
-    @mock.patch.object(serve.server, 'add_cli_args')
-    @mock.patch.object(serve.controller, 'add_cli_args')
-    @mock.patch.object(serve, 'setup_app_logging')
     def test_calls_conf_load(self, mock_setup_app_logging,
+                             mock_server_configure,
+                             mock_set_ctx_populator,
                              mock_server_add_cli_args,
                              mock_controller_add_cli_args,
                              mock_conf):
         serve.configure([])
         mock_conf.load.assert_called_once_with(
             prog='cdcagg_oai', package='cdcagg_oai', env_var_prefix='CDCAGG_')
+
+    def test_calls_server_configure(self, mock_setup_app_logging,
+                                    mock_server_configure,
+                                    mock_set_ctx_populator,
+                                    mock_server_add_cli_args,
+                                    mock_controller_add_cli_args,
+                                    mock_conf):
+        serve.configure([])
+        mock_server_configure.assert_called_once_with(mock_conf.get_conf.return_value)
 
 
 def _query_single(result):

@@ -64,6 +64,7 @@ def configure(mdformats):
     setup_app_logging(conf.get_package(), loglevel=settings.loglevel, port=settings.port)
     for mdformat in mdformats:
         mdformat.configure(settings)
+    server.configure(settings)
     return settings
 
 
