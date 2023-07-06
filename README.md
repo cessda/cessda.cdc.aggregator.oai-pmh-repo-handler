@@ -48,6 +48,25 @@ The following metadata formats are supported:
   - DDI 2.5 using metadataprefix ``oai_ddi25``.
   - OpenAIRE Datacite using metadataprefix ``oai_datacite``.
 
+The application exposes a /metrics endpoint, which provides certain
+statistics about the running instance of the application. This
+endpoint is provided by
+[prometheus-client](https://github.com/prometheus/client_python). The following
+metrics are exposed:
+
+| Metric                              | Type    | Explanation                                                                                 |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| `requests_total`                    | Counter | Total number of requests received                                                           |
+| `requests_per_user_agent_total`     | Counter | Number of requests received per user-agent                                                  |
+| `requests_succeeded_total`          | Counter | Number of successful requests                                                               |
+| `requests_failed_total`             | Counter | Number of failed requests                                                                   |
+| `requests_duration`                 | Summary | Response time in milliseconds                                                               |
+| `records_total`                     | Gauge   | Total number of OAI-PMH records (includes records marked as deleted)                        |
+| `records_total_without_deleted`     | Gauge   | Total number of OAI-PMH records (excludes records marked as deleted)                        |
+| `publishers_total`                  | Gauge   | Total number of distinct publishers (defined by the repository's declared OAI-PMH base URL) |
+| `publishers_counts`                 | Gauge   | Number of OAI-PMH records per publisher (includes records marked as deleted)                |
+| `publishers_counts_without_deleted` | Gauge   | Number of OAI-PMH records per publisher (excludes records marked as deleted)                |
+
 
 ## Requirements ##
 
@@ -128,6 +147,14 @@ python -m cdcagg_oai --help
 
 Note that most configuration options can be specified via command line
 arguments, configuration file options and environment variables.
+
+[Prometheus client](https://github.com/prometheus/client_python)
+provides additional configuration options that can be set using environment variables:
+
+- `PROMETHEUS_DISABLE_CREATED_SERIES` for disabling series suffixed by `_created`.
+- `PROMETHEUS_MULTIPROC_DIR` for storing metrics when running in multiprocess mode.
+
+Refer to Prometheus client documentation for more information.
 
 
 ## Build OAI sets based on source endpoint ##

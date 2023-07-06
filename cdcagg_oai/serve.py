@@ -16,6 +16,7 @@ Handle command line arguments, application setup, discovery & load of plugins,
 server startup and critical exception logging.
 """
 import logging
+from tornado.httputil import HTTPServerRequest
 from py12flogging.log_formatter import (
     set_ctx_populator,
     setup_app_logging
@@ -31,6 +32,8 @@ from kuha_oai_pmh_repo_handler import (
     controller
 )
 from kuha_oai_pmh_repo_handler.serve import load_metadataformats
+
+from cdcagg_oai import metrics
 
 
 _logger = logging.getLogger(__name__)
@@ -68,6 +71,22 @@ def configure(mdformats):
     return settings
 
 
+def app_setup(settings, mdformats):
+    """Setup and return Tornado web application
+
+    :param :obj:`argparse.Namespace` settings: Loaded settings
+    :param list mdformats: Loaded & configured metadataformats
+    :returns: Tornado web application instance
+    """
+    ctrl = controller.from_settings(settings, mdformats)
+    app = http_api.get_app(settings.api_version, controller=ctrl, app_class=metrics.CDCAggWebApp)
+    # Dynamically resolve handler for oai requests
+    app.set_oai_route_handler_class(app.find_handler(
+        HTTPServerRequest('GET', f'/{settings.api_version}/oai')).handler_class)
+    app.add_handlers('.*', [('/metrics', metrics.CDCAggMetricsHandler)])
+    return app
+
+
 def main():
     """Starts the server.
 
@@ -83,8 +102,7 @@ def main():
         conf.print_conf()
         return
     try:
-        ctrl = controller.from_settings(settings, mdformats)
-        app = http_api.get_app(settings.api_version, controller=ctrl)
+        app = app_setup(settings, mdformats)
     except Exception:
         _logger.exception('Exception in application setup')
         raise

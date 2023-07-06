@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## 0.6.0 - Unreleased
 
+### Added
+
+- Add /metrics endpoint to serve prometheus metrics (Implements
+  [#43](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/43))
+
 ### Fixed
 
 - Read configuration option `--server-process-count`. (Fixes

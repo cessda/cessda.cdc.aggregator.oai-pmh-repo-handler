@@ -26,6 +26,7 @@ requires = [
     'kuha_oai_pmh_repo_handler>=1.2.0',
     'cdcagg_common>=0.5.0',
     'Genshi',
+    'prometheus_client',
     'PyYaml'
 ]
 
