@@ -18,23 +18,18 @@
 # Visit https://bit.ly/cffinit to generate yours today!
 
 cff-version: 1.2.0
-title: CESSDA Vocabulary Service
+title: CDC Aggregator OAI-PMH handler
 message: >-
   If you use this software, please cite it using the
   metadata from this file.
 type: software
 authors:
-  - given-names: Sigit
-    family-names: Nugraha
+  - given-names: Toni
+    family-names: Sissala
     affiliation: >-
-      GESIS – Leibniz Institute for the Social
-      Sciences
-    email: sigit.nugraha@gesis.org
+      FSD - Finnish Social Science Data Archive
+    email: toni.sissala@tuni.fi
   - given-names: Matthew
     family-names: Morris
     email: matthew.morris@cessda.eu
     affiliation: CESSDA ERIC
-  - given-names: Joshua Tetteh
-    family-names: Ocansey
-    affiliation: CESSDA ERIC
-    email: joshua.ocansey@cessda.eu
