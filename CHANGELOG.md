@@ -5,7 +5,8 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## 0.6.0 - Unreleased
+## 0.6.0 - 2023-08-29
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8277095.svg)](https://doi.org/10.5281/zenodo.8277095)
 
 ### Added
 
