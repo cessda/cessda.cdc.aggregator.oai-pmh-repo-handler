@@ -1,6 +1,7 @@
 """Test /metrics endpoint & module internals
 """
-from unittest import mock, TestCase
+from unittest import mock, TestCase, IsolatedAsyncioTestCase
+from kuha_common.document_store.records import REC_STATUS_DELETED
 from cdcagg_common import Study
 from cdcagg_oai import metrics
 from . import CDCAggOAIHTTPTestBase
@@ -16,16 +17,23 @@ class TestMetricsEndpoint(CDCAggOAIHTTPTestBase):
 
     maxDiff = None
 
+    async def _query_multiple_side_eff(self, _, handler, **kwargs):
+        for study in self._query_multiple_result:
+            await handler(study)
+
     def setUp(self):
         super().setUp()
-        self._mock_query_distinct = self._init_patcher(mock.patch("kuha_common.query.QueryController.query_distinct"))
         self._mock_query_count = self._init_patcher(mock.patch("kuha_common.query.QueryController.query_count"))
+        self._mock_query_multiple = self._init_patcher(
+            mock.patch("kuha_common.query.QueryController.query_multiple", side_effect=self._query_multiple_side_eff)
+        )
+        self._query_multiple_result = []
 
     def _fetch_resp_body_lines(self):
         resp = self.fetch("/metrics")
         return resp.body.decode("utf8").split("\n")
 
-    def test_calls_query_count_twice_if_there_is_no_base_url(self):
+    def test_calls_query_count_twice(self):
         self.fetch("/metrics")
         self.assertEqual(self._mock_query_count.call_count, 2)
         self._mock_query_count.assert_has_awaits(
@@ -39,56 +47,13 @@ class TestMetricsEndpoint(CDCAggOAIHTTPTestBase):
             any_order=False,
         )
 
-    def test_calls_query_count_four_times_if_there_is_single_base_url(self):
-        self._mock_query_distinct.return_value = {"_provenance.base_url": ["some.base.url"]}
-        self._mock_query_count.return_value = 1
+    def test_calls_query_multiple(self):
         self.fetch("/metrics")
-        self.assertEqual(self._mock_query_count.call_count, 4)
-        self._mock_query_count.assert_has_awaits(
-            [
-                mock.call(Study),
-                mock.call(
-                    Study,
-                    _filter={Study._metadata.attr_status: {"$ne": "deleted"}},
-                ),
-                mock.call(
-                    Study,
-                    _filter={
-                        Study._provenance: {
-                            "$elemMatch": {
-                                Study._provenance.attr_base_url: "some.base.url",
-                                Study._provenance.attr_direct: True,
-                            }
-                        }
-                    },
-                ),
-                mock.call(
-                    Study,
-                    _filter={
-                        "$and": [
-                            {
-                                Study._provenance: {
-                                    "$elemMatch": {
-                                        Study._provenance.attr_base_url: "some.base.url",
-                                        Study._provenance.attr_direct: True,
-                                    }
-                                }
-                            },
-                            {Study._metadata.attr_status: {"$ne": "deleted"}},
-                        ]
-                    },
-                ),
-            ],
-            any_order=False,
-        )
-
-    def test_calls_query_count_eight_times_if_there_is_three_base_urls(self):
-        self._mock_query_distinct.return_value = {
-            "_provenance.base_url": ["some.base.url", "another.base.url", "third.base.url"]
-        }
-        self._mock_query_count.return_value = 1
-        self.fetch("/metrics")
-        self.assertEqual(self._mock_query_count.call_count, 8)
+        self.assertEqual(self._mock_query_multiple.call_count, 1)
+        args, kwargs = self._mock_query_multiple.call_args_list[0]
+        self.assertEqual(len(args), 2)
+        self.assertEqual(args[0], Study)
+        self.assertEqual(kwargs, {"fields": [Study._metadata, Study._provenance]})
 
     def test_returns_records_total(self):
         self._mock_query_count.side_effect = [10, 1]
@@ -99,31 +64,121 @@ class TestMetricsEndpoint(CDCAggOAIHTTPTestBase):
         self.assertIn("records_total_without_deleted 2.0", self._fetch_resp_body_lines())
 
     def test_returns_publishers_total(self):
-        self._mock_query_distinct.return_value = {"_provenance.base_url": ["some.base.url"]}
+        study = Study()
+        study._provenance.add_value(
+            "someharvestdate",
+            altered=True,
+            base_url="some.base.url",
+            identifier="some_identifier",
+            datestamp="somedatestamp",
+            direct=False,
+            metadata_namespace="some_namespace",
+        )
+        study._provenance.add_value(
+            "someharvestdate",
+            altered=True,
+            base_url="another.base.url",
+            identifier="some_identifier",
+            datestamp="somedatestamp",
+            direct=True,
+            metadata_namespace="some_namespace",
+        )
+        self._query_multiple_result.append(study)
         self._mock_query_count.return_value = 1
         self.assertIn("publishers_total 1.0", self._fetch_resp_body_lines())
 
-    def test_returns_publishers_total_is_zero_if_count_query_returns_0(self):
-        self._mock_query_distinct.return_value = {"_provenance.base_url": ["some.base.url"]}
-        self._mock_query_count.side_effect = [1, 1, 0]
+    def test_returns_publishers_total_is_zero_if_no_records_are_returned(self):
+        self._mock_query_count.side_effect = [1, 1]
         self.assertIn("publishers_total 0.0", self._fetch_resp_body_lines())
 
     def test_returns_publishers_counts(self):
-        self._mock_query_distinct.return_value = {"_provenance.base_url": ["some.base.url"]}
-        self._mock_query_count.side_effect = [1, 1, 20, 0]
+        for _ in range(20):
+            study = Study()
+            study._provenance.add_value(
+                "someharvestdate",
+                altered=True,
+                base_url="another.base.url",
+                identifier="some_identifier",
+                datestamp="somedatestamp",
+                direct=False,
+                metadata_namespace="some_namespace",
+            )
+            study._provenance.add_value(
+                "someharvestdate",
+                altered=True,
+                base_url="some.base.url",
+                identifier="some_identifier",
+                datestamp="somedatestamp",
+                direct=True,
+                metadata_namespace="some_namespace",
+            )
+            self._query_multiple_result.append(study)
+        self._mock_query_count.side_effect = [1, 1]
         self.assertIn('publishers_counts{publisher="some.base.url"} 20.0', self._fetch_resp_body_lines())
 
     def test_returns_publishers_counts_without_deleted(self):
-        self._mock_query_distinct.return_value = {"_provenance.base_url": ["some.base.url"]}
-        self._mock_query_count.side_effect = [1, 1, 1, 30]
-        self.assertIn(
-            'publishers_counts_without_deleted{publisher="some.base.url"} 30.0', self._fetch_resp_body_lines()
-        )
+        for index in range(20):
+            study = Study()
+            study._provenance.add_value(
+                "someharvestdate",
+                altered=True,
+                base_url="another.base.url",
+                identifier="some_identifier",
+                datestamp="somedatestamp",
+                direct=False,
+                metadata_namespace="some_namespace",
+            )
+            study._provenance.add_value(
+                "someharvestdate",
+                altered=True,
+                base_url="some.base.url",
+                identifier="some_identifier",
+                datestamp="somedatestamp",
+                direct=True,
+                metadata_namespace="some_namespace",
+            )
+            if index % 2:
+                study.set_status(REC_STATUS_DELETED)
+            self._query_multiple_result.append(study)
+        self._mock_query_count.side_effect = [1, 1]
+        body_lines = self._fetch_resp_body_lines()
+        self.assertIn('publishers_counts_without_deleted{publisher="some.base.url"} 10.0', body_lines)
+        self.assertIn('publishers_counts{publisher="some.base.url"} 20.0', body_lines)
 
 
 # ################################### #
 # Unittests against metrics.py module #
 # ################################### #
+
+
+class TestCDCAggMetricsHandler(IsolatedAsyncioTestCase):
+    async def _query_multiple_side_eff(self, _, handler, **kwargs):
+        for study in self._query_multiple_result:
+            await handler(study)
+
+    @mock.patch.object(metrics, "_initialize_metrics_registry", return_value=(mock.Mock() for _ in range(6)))
+    @mock.patch("kuha_common.query.QueryController.query_multiple")
+    @mock.patch("kuha_common.query.QueryController.query_count")
+    async def test_raises_ValueError_if_study_has_no_direct_provenance(
+        self, mock_query_count, mock_query_multiple, mock_initialize_metrics_registry
+    ):
+        mock_query_multiple.side_effect = self._query_multiple_side_eff
+        study = Study()
+        study._provenance.add_value(
+            "someharvestdate",
+            altered=True,
+            base_url="some.base.url",
+            identifier="some_identifier",
+            datestamp="somedatestamp",
+            direct=False,
+            metadata_namespace="some_namespace",
+        )
+        self._query_multiple_result = [study]
+        mock_query_count.return_value = 1
+        handler = metrics.CDCAggMetricsHandler(mock.MagicMock(), mock.Mock())
+        handler._correlation_id = mock.Mock(as_header=mock.Mock(return_value={}))
+        with self.assertRaises(ValueError):
+            await handler.get()
 
 
 @mock.patch.object(metrics.MultiProcessCollector, "_read_metrics")
@@ -190,7 +245,7 @@ class TestInitializeMetricsRegistry(TestCase):
     @mock.patch.object(metrics, "_MultiProcessCollector")
     @mock.patch.object(metrics.os, "environ", new={"PROMETHEUS_MULTIPROC_DIR": "/some/dir"})
     def test_passes_correct_args_to_Gauges_if_environ_has_PROMETHEUS_MULTIPROC_DIR(
-        self,  mock_MultiProcessCollector, mock_CollectorRegistry, mock_Gauge
+        self, mock_MultiProcessCollector, mock_CollectorRegistry, mock_Gauge
     ):
         metrics._initialize_metrics_registry()
         self.assertEqual(mock_Gauge.call_count, 5)

@@ -25,6 +25,7 @@ For more information, see the prometheus client docs
 (https://github.com/prometheus/client_python#multiprocess-mode-eg-gunicorn).
 """
 import os
+from collections import defaultdict
 from prometheus_client import (
     CollectorRegistry,
     Gauge,
@@ -145,6 +146,30 @@ def _initialize_metrics_registry():
     )
 
 
+async def _count_number_of_publishers(base_urls_counts):
+    async def _inner_count_number_of_publishers(study):
+        direct_base_url = None
+        for prov in study._provenance:
+            if prov.attr_direct.get_value() is True:
+                direct_base_url = prov.attr_base_url.get_value()
+                break
+        if direct_base_url is None:
+            # This should never happen. There is something wrong
+            # with the record if we end up in there.
+            # The cdcagg_client should take care to always assign
+            # a direct provenance, but the Document Store does
+            # have a REST API which can be used to alter records.
+            raise ValueError(f"Study {study.get_id()} does not "
+                             "have a direct provenance. It is most likely a "
+                             "corrupted database entry.")
+        # Found the direct base_url. Increase number of records for this publisher.
+        base_urls_counts[direct_base_url]["overall"] += 1
+        if not study.is_deleted():
+            # Study is not deleted. Increase number of non-deleted records for this publisher.
+            base_urls_counts[direct_base_url]["non_deleted"] += 1
+    return _inner_count_number_of_publishers
+
+
 class CDCAggMetricsHandler(server.RequestHandler):
     """Interface for prometheus server
 
@@ -171,45 +196,25 @@ class CDCAggMetricsHandler(server.RequestHandler):
                 Study, _filter={Study._metadata.attr_status: {query_ctrl.fk_constants.not_equal: REC_STATUS_DELETED}}
             )
         )
+        #
         # Number of Publishers (Service Providers) included and
         # Number of records included per Publisher
-        distinct_base_urls = await query_ctrl.query_distinct(Study, fieldname=Study._provenance.attr_base_url)
-        publishers_total_count = 0
-        for base_url in distinct_base_urls[Study._provenance.attr_base_url.path]:
-            count = await query_ctrl.query_count(
-                Study,
-                _filter={
-                    Study._provenance: {
-                        query.QueryController.fk_constants.elem_match: {
-                            Study._provenance.attr_base_url: base_url,
-                            Study._provenance.attr_direct: True,
-                        }
-                    }
-                },
-            )
-            if count == 0:
-                # The base_url is not the direct source
-                continue
-            publishers_total_count += 1
-            metric_publishers_counts.labels(publisher=base_url).set(count)
-            count_sans_deleted = await query_ctrl.query_count(
-                Study,
-                _filter={
-                    query_ctrl.fk_constants.and_: [
-                        {
-                            Study._provenance: {
-                                query.QueryController.fk_constants.elem_match: {
-                                    Study._provenance.attr_base_url: base_url,
-                                    Study._provenance.attr_direct: True,
-                                }
-                            }
-                        },
-                        {Study._metadata.attr_status: {query_ctrl.fk_constants.not_equal: REC_STATUS_DELETED}},
-                    ]
-                },
-            )
-            metric_publishers_counts_without_deleted.labels(publisher=base_url).set(count_sans_deleted)
-        metric_publishers_total.set(publishers_total_count)
+        #
+        # 1. Query all study fields _metadata & _provenance
+        # 2. Find every _provenance.base_url which is contained within an object where direct is True.
+        # 3. Find out if _metadata.status = DELETED.
+        # Result is a dict:
+        # {<base_url>: {"overall": <overall_count>, "non_deleted": <non_deleted_count>}}
+        # len(result_dict) is the publishers total count.
+        # result_dict[<base_url>]["overall"] is the number of records for this publisher.
+        # result_dict[<base_url>]["non_deleted"] is the number of non-deleted records for this publisher.
+        base_urls_counts = defaultdict(lambda: {"overall": 0, "non_deleted": 0})
+        count_base_urls_counts = await _count_number_of_publishers(base_urls_counts)
+        await query_ctrl.query_multiple(Study, count_base_urls_counts, fields=[Study._metadata, Study._provenance])
+        metric_publishers_total.set(len(base_urls_counts))
+        for base_url, counts in base_urls_counts.items():
+            metric_publishers_counts.labels(publisher=base_url).set(counts["overall"])
+            metric_publishers_counts_without_deleted.labels(publisher=base_url).set(counts["non_deleted"])
         encoder, content_type = choose_encoder(self.request.headers.get("accept"))
         self.set_header("Content-Type", content_type)
         self.finish(encoder(registry))
