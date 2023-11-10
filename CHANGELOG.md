@@ -5,20 +5,6 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## 0.6.1 - unreleased
-
-### Changed
-
-- Metrics for `publishers_counts` and
-  `publishers_counts_without_deleted` are now calculated in Python
-  code.
-
-### Fixed
-
-- Slow query reported by MongoDB (Fixes
-  [#53](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/53))
-
-
 ## 0.6.0 - 2023-08-29
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8277095.svg)](https://doi.org/10.5281/zenodo.8277095)
 
