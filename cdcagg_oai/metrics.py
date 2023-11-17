@@ -154,6 +154,9 @@ class CDCAggMetricsHandler(server.RequestHandler):
 
     async def get(self):
         """HTTP GET handler for prometheus metrics"""
+        # Disable pylint protected-acccess in this method scope, since
+        # it is giving lots of noise.
+        # pylint: disable=protected-access
         (
             registry,
             metric_records_total,
