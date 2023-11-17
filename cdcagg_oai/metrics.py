@@ -173,20 +173,10 @@ class CDCAggMetricsHandler(server.RequestHandler):
         )
         # Number of Publishers (Service Providers) included and
         # Number of records included per Publisher
-        distinct_base_urls = await query_ctrl.query_distinct(Study, fieldname=Study._provenance.attr_base_url)
+        distinct_base_urls = await query_ctrl.query_distinct(Study, fieldname=Study._direct_base_url)
         publishers_total_count = 0
-        for base_url in distinct_base_urls[Study._provenance.attr_base_url.path]:
-            count = await query_ctrl.query_count(
-                Study,
-                _filter={
-                    Study._provenance: {
-                        query.QueryController.fk_constants.elem_match: {
-                            Study._provenance.attr_base_url: base_url,
-                            Study._provenance.attr_direct: True,
-                        }
-                    }
-                },
-            )
+        for base_url in distinct_base_urls[Study._direct_base_url.path]:
+            count = await query_ctrl.query_count(Study, _filter={Study._direct_base_url: base_url})
             if count == 0:
                 # The base_url is not the direct source
                 continue
@@ -196,14 +186,7 @@ class CDCAggMetricsHandler(server.RequestHandler):
                 Study,
                 _filter={
                     query_ctrl.fk_constants.and_: [
-                        {
-                            Study._provenance: {
-                                query.QueryController.fk_constants.elem_match: {
-                                    Study._provenance.attr_base_url: base_url,
-                                    Study._provenance.attr_direct: True,
-                                }
-                            }
-                        },
+                        {Study._direct_base_url: base_url},
                         {Study._metadata.attr_status: {query_ctrl.fk_constants.not_equal: REC_STATUS_DELETED}},
                     ]
                 },
