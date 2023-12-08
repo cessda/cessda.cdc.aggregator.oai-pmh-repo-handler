@@ -14,4 +14,4 @@ git+https://github.com/cessda/cessda.cdc.aggregator.shared-library@0.6.0#egg=cdc
 # Kuha Common
 git+https://bitbucket.org/tietoarkisto/kuha_common@2.0.1#egg=kuha_common
 # Kuha OAI-PMH Repo Handler
-git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@1.3.0#egg=kuha_oai_pmh_repo_handler
+git+https://bitbucket.org/tietoarkisto/kuha_oai_pmh_repo_handler@1.4.1#egg=kuha_oai_pmh_repo_handler
