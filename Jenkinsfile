@@ -184,7 +184,7 @@ node(node_label) {
             stage('Push Docker image') {
                 sh "gcloud auth configure-docker ${ARTIFACT_REGISTRY_HOST}"
                 sh "docker push ${image_tag}"
-                sh "gcloud artifacts docker tags add ${image_tag} ${DOCKER_ARTIFACT_REGISTRY}/cdcagg-oai:${env.BRANCH_NAME}-latest"
+                sh "gcloud artifacts docker tags add ${image_tag} ${DOCKER_ARTIFACT_REGISTRY}/cdc-agg-oai:${env.BRANCH_NAME}-latest"
             }
         }
     } catch (err) {
