@@ -5,6 +5,19 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## 0.7.0 - Unreleased
+
+### Fixed
+
+- Empty resumptionToken is now intepreted correctly by XSLT
+  processing. It means the list response is complete. (Fixes
+  [#67](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/67))
+
+### Changed
+
+- Require Kuha OAI-PMH Repo Handler 1.4.1 in requirements.txt.
+
+
 ## 0.6.0 - 2023-08-29
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8277095.svg)](https://doi.org/10.5281/zenodo.8277095)
 
