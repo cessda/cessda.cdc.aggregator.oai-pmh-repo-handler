@@ -27,7 +27,7 @@ node(node_label) {
     def pylint_report_path = 'pylint_report.txt'
     def coverage_xml_path = 'coverage.xml'
     def sonar_properties_path = 'sonar-project.properties'
-    def image_tag = "${docker_repo}/cdcagg-oai:${env.BRANCH_NAME.toLowerCase().replaceAll('[^a-z0-9\\.\\_\\-]', '-')}-${env.BUILD_NUMBER}"
+    def image_tag = "${DOCKER_ARTIFACT_REGISTRY}/cdcagg-oai:${env.BRANCH_NAME.toLowerCase().replaceAll('[^a-z0-9\\.\\_\\-]', '-')}-${env.BUILD_NUMBER}"
 
     // prepare workspace
     def myworkspace = ''
@@ -182,9 +182,9 @@ node(node_label) {
         }
         if (env.BRANCH_NAME == 'main') {
             stage('Push Docker image') {
-                sh 'gcloud auth configure-docker'
+                sh "gcloud auth configure-docker ${ARTIFACT_REGISTRY_HOST}"
                 sh "docker push ${image_tag}"
-                sh "gcloud container images add-tag ${image_tag} ${docker_repo}/cdcagg-oai:${env.BRANCH_NAME}-latest"
+                sh "gcloud artifacts docker tags add ${image_tag} ${DOCKER_ARTIFACT_REGISTRY}/cdcagg-oai:${env.BRANCH_NAME}-latest"
             }
         }
     } catch (err) {
