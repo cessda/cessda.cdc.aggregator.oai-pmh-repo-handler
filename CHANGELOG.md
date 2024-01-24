@@ -5,17 +5,21 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## 0.7.0 - Unreleased
+## 0.7.0 - 2024-01-24
 
 ### Fixed
 
 - Empty resumptionToken is now intepreted correctly by XSLT
   processing. It means the list response is complete. (Fixes
   [#67](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/67))
+- Use new study schema introduced by Shared Library 0.6.0 to count
+  metrics exposed via /metrics endpoint. This improves performance by
+  decreasing response times of the endpoint.
 
 ### Changed
 
 - Require Kuha OAI-PMH Repo Handler 1.4.1 in requirements.txt.
+- Require CESSDA CDC Aggegator Shared Library 0.6.0 in requirements.txt and setup.py.
 
 
 ## 0.6.0 - 2023-08-29
