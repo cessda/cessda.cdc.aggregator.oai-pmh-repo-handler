@@ -50,7 +50,7 @@
 #     -e "CDCAGG_OPRH_OP_BASE_URL=https://my-oai-endpoint.com"
 #     cdcagg-oai
 
-FROM python:3.11-slim as builder
+FROM python:3.12-slim as builder
 
 COPY . /docker-build
 WORKDIR /docker-build
@@ -70,7 +70,7 @@ RUN --mount=type=secret,id=bbcreds \
 # END FIRST STAGE
 
 
-FROM python:3.11-slim as prod
+FROM python:3.12-slim as prod
 
 # Copy built packages from builder image to prod.
 # Add them to PATH.
