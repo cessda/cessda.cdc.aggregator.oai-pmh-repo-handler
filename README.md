@@ -16,7 +16,7 @@
 HTTP server providing an OAI-PMH aggregator endpoint serving DocStore
 records. This program is part of CESSDA Metadata Aggregator.
 
-Source code is hosted at Bitbucket [https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler).
+Source code is hosted at Github [https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler).
 
 ## Features ##
 
