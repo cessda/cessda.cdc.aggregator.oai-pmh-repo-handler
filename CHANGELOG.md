@@ -5,7 +5,7 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
-## 0.8.0 - 2024-04-29
+## 0.8.0 - 2024-04-30
 
 ### Added
 
@@ -17,9 +17,15 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ### Changed
 
-- Require CESSDA CDC Aggregator Shared Library 0.7.0 in requirements.txt and setup.py.
-- Require Kuha OAI-PMH Repo Handler 1.5.0 in requirements.txt and setup.py.
-- Require Kuha Common 2.4.0 in requirements.txt and setup.py.
+- Require CESSDA CDC Aggregator Shared Library 0.7.0 in
+  requirements.txt and setup.py. (Implements
+  [#72](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/72))
+- Require Kuha OAI-PMH Repo Handler 1.5.0 in requirements.txt and
+  setup.py. (Implements
+  [#72](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/72))
+- Require Kuha Common 2.4.0 in requirements.txt and
+  setup.py. (Implements
+  [#72](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/72))
 
 
 ## 0.7.0 - 2024-01-24
