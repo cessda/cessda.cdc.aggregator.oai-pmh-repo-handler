@@ -22,9 +22,9 @@ with open('VERSION', 'r') as file_obj:
 
 
 requires = [
-    'kuha_common>=2.0.0',
-    'kuha_oai_pmh_repo_handler>=1.2.0',
-    'cdcagg_common>=0.6.0',
+    'kuha_common>=2.4.0',
+    'kuha_oai_pmh_repo_handler>=1.4.0',
+    'cdcagg_common>=0.7.0',
     'Genshi',
     'prometheus_client',
     'PyYaml'
