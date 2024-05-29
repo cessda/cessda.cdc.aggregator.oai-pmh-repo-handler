@@ -1,5 +1,10 @@
 # CESSDA Metadata Aggregator - OAI-PMH Repo Handler #
 
+[![SQAaaS badge](https://github.com/EOSC-synergy/SQAaaS/raw/master/badges/badges_150x116/badge_software_silver.png)](https://api.eu.badgr.io/public/assertions/l65LikWrSn2hUiZuE7BVhQ "SQAaaS silver badge achieved")
+
+[![SQAaaS badge shields.io](https://img.shields.io/badge/sqaaas%20software-silver-lightgrey)](https://api.eu.badgr.io/public/assertions/l65LikWrSn2hUiZuE7BVhQ "SQAaaS silver badge achieved")
+
+
 [![Build Status](https://jenkins.cessda.eu/buildStatus/icon?job=cessda.cdc.aggregator.oai-pmh-repo-handler%2Fmaster)](https://jenkins.cessda.eu/job/cessda.cdc.aggregator.oai-pmh-repo-handler/job/master/)
 [![Bugs](https://sonarqube.cessda.eu/api/project_badges/measure?project=cessda.cdc.aggregator.oai-pmh-repo-handler&metric=bugs)](https://sonarqube.cessda.eu/dashboard?id=cessda.cdc.aggregator.oai-pmh-repo-handler)
 [![Code Smells](https://sonarqube.cessda.eu/api/project_badges/measure?project=cessda.cdc.aggregator.oai-pmh-repo-handler&metric=code_smells)](https://sonarqube.cessda.eu/dashboard?id=cessda.cdc.aggregator.oai-pmh-repo-handler)
