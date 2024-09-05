@@ -48,7 +48,25 @@ def isolate_kuha_metadataformats_storage():
     return _reset
 
 
-class CDCAggOAIHTTPTestBase(AsyncHTTPTestCase):
+def testcasebase(parent_test_case):
+    class _TestCaseBase(parent_test_case):
+        def setUp(self):
+            self._resets = []
+            super().setUp()
+
+        def tearDown(self):
+            for reset in self._resets:
+                reset()
+            super().tearDown()
+
+        def _init_patcher(self, patcher):
+            _mock_obj = patcher.start()
+            self._resets.append(patcher.stop)
+            return _mock_obj
+    return _TestCaseBase
+
+
+class CDCAggOAIHTTPTestBase(testcasebase(AsyncHTTPTestCase)):
 
     _settings = None
 
@@ -108,26 +126,17 @@ class CDCAggOAIHTTPTestBase(AsyncHTTPTestCase):
         cls._settings = None
 
     def setUp(self):
-        self._patchers = []
-        self._resets = [isolate_oai_pmh_route_handler_class(), isolate_kuha_metadataformats_storage()]
+        isolation_resets = [isolate_oai_pmh_route_handler_class(), isolate_kuha_metadataformats_storage()]
         super().setUp()
+        self._resets.extend(isolation_resets)
 
     def tearDown(self):
-        for patcher in self._patchers:
-            patcher.stop()
         self._clear_settings()
         defaults = self.settings()
         client.configure(defaults)
         query.configure(defaults)
-        for reset in self._resets:
-            reset()
         self._clear_settings()
         super().tearDown()
-
-    def _init_patcher(self, patcher):
-        mocked = patcher.start()
-        self._patchers.append(patcher)
-        return mocked
 
     def get_app(self):
         if self._settings is None:

@@ -13,13 +13,12 @@
 
 import os.path
 from tempfile import NamedTemporaryFile
-from unittest import mock
+from unittest import mock, TestCase, IsolatedAsyncioTestCase
 from argparse import Namespace
 from yaml.parser import ParserError
-from kuha_common.testing.testcases import KuhaUnitTestCase
-from kuha_common.testing import mock_coro
 from cdcagg_common.records import Study
 from cdcagg_oai import metadataformats
+from . import testcasebase
 
 
 CONFIGURABLE_SETS = """
@@ -78,7 +77,7 @@ nodes:
         'data', filename)))
 
 
-class TestConfigurableMDSet(KuhaUnitTestCase):
+class TestConfigurableMDSet(TestCase):
 
     def tearDown(self):
         metadataformats.ConfigurableAggMDSet.spec = None
@@ -239,7 +238,10 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
             "    identifiers: \n"
             "      key: 'value'")
 
-    def test_get_config_with_path_single_node(self):
+
+class TestConfigurableMDSetAsync(IsolatedAsyncioTestCase):
+
+    async def test_get_config_with_path_single_node(self):
         conf_set = _configurable_sets_with_path('ext_confset.yaml')
         with NamedTemporaryFile(mode='w', delete=False) as somefile:
             somefile.write(conf_set)
@@ -247,7 +249,7 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
             settings = Namespace(oai_set_configurable_path=somefile.name)
             metadataformats.ConfigurableAggMDSet.configure(settings)
             conf_agg_set = metadataformats.ConfigurableAggMDSet('metadataformat')
-        self.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
+        cnf = await conf_agg_set._get_config()
         expected = [{'description': 'Studies in social sciences',
                      'identifiers': ['id_1', 'id_2'],
                      'name': 'Social sciences',
@@ -256,10 +258,9 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
                      'identifiers': ['id_5', 'id_6'],
                      'name': 'History',
                      'spec': 'history'}]
-        cnf = self._stored_result
         self.assertEqual(cnf['nodes'], expected)
 
-    def test_get_config_with_path_multiple_nodes(self):
+    async def test_get_config_with_path_multiple_nodes(self):
         conf_set = _configurable_sets_with_path('ext_confsets.yaml')
         with NamedTemporaryFile(mode='w', delete=False) as somefile:
             somefile.write(conf_set)
@@ -267,7 +268,7 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
             settings = Namespace(oai_set_configurable_path=somefile.name)
             metadataformats.ConfigurableAggMDSet.configure(settings)
             conf_agg_set = metadataformats.ConfigurableAggMDSet('metadataformat')
-        self.run_until_complete(self.await_and_store_result(conf_agg_set._get_config()))
+        cnf = await conf_agg_set._get_config()
         expected = [{'description': 'Studies in social sciences',
                      'identifiers': ['id_1', 'id_2'],
                      'name': 'Social sciences',
@@ -280,11 +281,10 @@ class TestConfigurableMDSet(KuhaUnitTestCase):
                      'identifiers': ['id_7', 'id_8'],
                      'name': 'Literature',
                      'spec': 'literature'}]
-        cnf = self._stored_result
         self.assertEqual(cnf['nodes'], expected)
 
 
-class TestSourceAggMDSet(KuhaUnitTestCase):
+class TestSourceAggMDSet(TestCase):
 
     def tearDown(self):
         metadataformats.SourceAggMDSet._source_defs = None
@@ -318,7 +318,7 @@ class TestSourceAggMDSet(KuhaUnitTestCase):
         self.assertEqual(metadataformats.SourceAggMDSet._source_defs, [])
 
 
-class TestSourceAggMDSetWithYAMLFile(KuhaUnitTestCase):
+class TestSourceAggMDSetWithYAMLFile(testcasebase(IsolatedAsyncioTestCase)):
 
     def setUp(self):
         super().setUp()
@@ -333,37 +333,37 @@ class TestSourceAggMDSetWithYAMLFile(KuhaUnitTestCase):
         self._sourcesfile.close()
         super().tearDown()
 
-    def test_get_reads_sources_from_file(self):
+    async def test_get_reads_sources_from_file(self):
         mock_mdformat = mock.Mock()
         source_set = metadataformats.SourceAggMDSet(mock_mdformat)
         study = Study()
         study._provenance.add_value('someharvestdate', altered=True, base_url='http://some.url',
                                     identifier='someidentifier', datestamp='somedatestamp',
                                     direct=True, metadata_namespace='somenamespace')
-        self.run_until_complete(self.await_and_store_result(source_set.get(study)))
-        self.assertEqual(self._stored_result, ['some source'])
+        result = await source_set.get(study)
+        self.assertEqual(result, ['some source'])
 
-    def test_get_returns_empty_list_if_no_source_found(self):
+    async def test_get_returns_empty_list_if_no_source_found(self):
         mock_mdformat = mock.Mock()
         source_set = metadataformats.SourceAggMDSet(mock_mdformat)
         study = Study()
         study._provenance.add_value('someharvestdate', altered=True, base_url='http://yetanother.url',
                                     identifier='someidentifier', datestamp='somedatestamp',
                                     direct=True, metadata_namespace='somenamespace')
-        self.run_until_complete(self.await_and_store_result(source_set.get(study)))
-        self.assertEqual(self._stored_result, [])
+        result = await source_set.get(study)
+        self.assertEqual(result, [])
 
-    def test_query_calls_param(self):
+    async def test_query_calls_param(self):
         # Mock & format
-        mock_query_distinct = self.init_patcher(mock.patch(
+        mock_query_distinct = self._init_patcher(mock.patch(
             'kuha_common.query.QueryController.query_distinct'))
         mock_query_distinct.return_value = {'_provenance.base_url': [
             'http://yetanother.url', 'http://some.url', 'http://another.url']}
         mock_mdformat = mock.Mock(study_class=Study, corr_id_header={'key': 'value'})
         source_set = metadataformats.SourceAggMDSet(mock_mdformat)
-        mock_on_set_cb = mock.Mock(side_effect=mock_coro())
+        mock_on_set_cb = mock.AsyncMock()
         # Call
-        self.run_until_complete(self.await_and_store_result(source_set.query(mock_on_set_cb)))
+        await source_set.query(mock_on_set_cb)
         # Assert
         exp_calls = {'source': {'name': 'Source archive'},
                      'source:some source': {'name': 'some source name',
