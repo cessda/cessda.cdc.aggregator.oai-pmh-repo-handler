@@ -34,8 +34,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   metadataprefix `oai_ddi25`. CESSDA validator considers IDNo elements
   without agency-attribute as invalid according to CDC Profile
   2.5. This is implemented in Kuha OAI-PMH Repo Handler 1.7.0.
-- Migrate away from kuha_common.testcases in tests, since stdlib
-  unittest now offers AsyncMock & IsolatedAsyncioTestCase.
+- Migrate away from `kuha_common.testcases` in tests, since stdlib
+  unittest now offers `AsyncMock` & `IsolatedAsyncioTestCase`.
 
 ### Fixed
 
@@ -45,9 +45,9 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
   WARNING severity. This is implemented in Kuha OAI-PMH Repo Handler
   1.8.0.
 - Fix random `ResourceWarning: unclosed event loop` when running
-  tests. KuhaUnitTestCase does not properly close the event
-  loop on tearDown. Migrate away from KuhaUnitTestCase and use
-  unittest.IsolatedAsyncioTestCase when running coroutines is
+  tests. `KuhaUnitTestCase` does not properly close the event
+  loop on tearDown. Migrate away from `KuhaUnitTestCase` and use
+  `unittest.IsolatedAsyncioTestCase` when running coroutines is
   required.
 
 
