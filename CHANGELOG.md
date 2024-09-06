@@ -5,6 +5,52 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## 0.9.0 - 2024-09-06
+
+### Added
+
+- Support Python 3.11 & Python 3.12.
+- New test environment for tox 'warnings-as-errors' to treat warnings
+  as errors in tests. Run this environment in CI with latest python.
+
+### Changed
+
+- Update dependencies in requirements.txt to support Python 3.12:
+
+  - Genshi 0.7.9
+  - Tornado 6.4.1
+  - PyYAML 6.0.2
+  - Py12fLogging 0.7.0
+  - Kuha Common 2.5.0
+  - Kuha OAI-PMH Repo Handler 1.8.0
+  - CESSDA Aggregator Shared Library 0.8.1
+
+- Update dependencies to latest in requirements.txt:
+
+  - ConfigArgParse 1.7
+  - prometheus-client 0.20.0
+
+- Don’t render empty IDNo & holdings elements inside relPubl in
+  metadataprefix `oai_ddi25`. CESSDA validator considers IDNo elements
+  without agency-attribute as invalid according to CDC Profile
+  2.5. This is implemented in Kuha OAI-PMH Repo Handler 1.7.0.
+- Migrate away from `kuha_common.testcases` in tests, since stdlib
+  unittest now offers `AsyncMock` & `IsolatedAsyncioTestCase`.
+
+### Fixed
+
+- The submitted resumptionToken value is validated and
+  BadResumptionToken OAI-PMH error is rendered if it is
+  invalid. Invalid resumptionToken -message is also logged with
+  WARNING severity. This is implemented in Kuha OAI-PMH Repo Handler
+  1.8.0.
+- Fix random `ResourceWarning: unclosed event loop` when running
+  tests. `KuhaUnitTestCase` does not properly close the event
+  loop on tearDown. Migrate away from `KuhaUnitTestCase` and use
+  `unittest.IsolatedAsyncioTestCase` when running coroutines is
+  required.
+
+
 ## 0.8.0 - 2024-04-30
 
 ### Added

@@ -15,16 +15,14 @@ import datetime
 from argparse import Namespace
 from xml.etree import ElementTree
 from inspect import iscoroutinefunction
-from unittest import mock
+from unittest import mock, TestCase
 
-from kuha_common.testing import mock_coro
-from kuha_common.testing.testcases import KuhaUnitTestCase
 from kuha_common.document_store.constants import REC_STATUS_DELETED
 
 from kuha_oai_pmh_repo_handler import metadataformats as kuha_metadataformats
 from cdcagg_common.records import Study
 from cdcagg_oai import serve
-from . import isolate_oai_pmh_route_handler_class, CDCAggOAIHTTPTestBase
+from . import testcasebase, isolate_oai_pmh_route_handler_class, CDCAggOAIHTTPTestBase
 
 
 API_VERSION = 'v0'
@@ -73,7 +71,7 @@ def _study_for_oaidc():
 @mock.patch.object(serve, 'set_ctx_populator')
 @mock.patch.object(serve.server, 'configure')
 @mock.patch.object(serve, 'setup_app_logging')
-class TestConfigure(KuhaUnitTestCase):
+class TestConfigure(TestCase):
     def test_calls_conf_load(self, mock_setup_app_logging,
                              mock_server_configure,
                              mock_set_ctx_populator,
@@ -97,7 +95,7 @@ class TestConfigure(KuhaUnitTestCase):
 @mock.patch.object(serve.server, 'serve')
 @mock.patch.object(serve, 'configure')
 @mock.patch.object(serve.controller, 'from_settings')
-class TestMain(KuhaUnitTestCase):
+class TestMain(testcasebase(TestCase)):
 
     def setUp(self):
         super().setUp()
@@ -163,7 +161,7 @@ class FakeDatetime(datetime.datetime):
     """
 
     @classmethod
-    def utcnow(cls):
+    def now(cls, tz=None):
         return cls(2019, 12, 12, 7, 14, 37, 685563)
 
 
@@ -186,8 +184,8 @@ class TestHTTPResponses(CDCAggOAIHTTPTestBase):
         verb = req_args.get('verb', 'GetRecord')
         md_prefix = req_args.get('metadata_prefix', 'oai_dc')
         identifier = req_args.get('identifier', 'some_id')
-        self._mock_query_single.side_effect = mock_coro(func=_query_single(return_record))
-        self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple(return_relatives))
+        self._mock_query_single.side_effect = _query_single(return_record)
+        self._mock_query_multiple.side_effect = _query_multiple(return_relatives)
         self._requested_url = (OAI_URL + '?verb={verb}&metadataPrefix={md_prefix}&'
                                'identifier={id}'.format(
                                    verb=verb, md_prefix=md_prefix, id=identifier))
@@ -209,8 +207,7 @@ class TestHTTPResponses(CDCAggOAIHTTPTestBase):
     # IDENTIFY
 
     def test_GET_identify_returns_default_deletedRecord(self):
-        study = Study()
-        self._mock_query_single.side_effect = mock_coro(study)
+        self._mock_query_single.return_value = Study()
         resp_xml = self.resp_to_xmlel(self.fetch(OAI_URL + '?verb=Identify'))
         self.assertEqual(''.join(resp_xml.find('./oai:Identify/oai:deletedRecord', XMLNS).itertext()),
                          'transient')
@@ -1089,7 +1086,7 @@ class TestHTTPResponses(CDCAggOAIHTTPTestBase):
                 'study_titles.language': ['fi', 'en'],
                 '_provenance.base_url': ['some.base.url', 'http://services.fsd.tuni.fi/v0/oai']
             }}[fieldname.path]
-        self._mock_query_distinct.side_effect = mock_coro(func=_query_distinct)
+        self._mock_query_distinct.side_effect = _query_distinct
         resp = self.fetch(OAI_URL + '?verb=ListSets')
         xml_el = self.resp_to_xmlel(resp)
         set_els = xml_el.findall('./oai:ListSets/oai:set', XMLNS)
@@ -1146,7 +1143,7 @@ class TestHTTPResponses(CDCAggOAIHTTPTestBase):
     def test_GET_listrecords_returns_correct_xml_for_deleted_records(self):
         # Mock & format
         study_1, study_2, study_3 = [Study() for _ in range(3)]
-        self._mock_query_count.side_effect = mock_coro(3)
+        self._mock_query_count.return_value = 3
         study_1.add_study_number('study_1')
         study_1._metadata.attr_status.set_value(REC_STATUS_DELETED)
         study_1.set_deleted('2000-01-01T23:24:25Z')
@@ -1168,10 +1165,10 @@ class TestHTTPResponses(CDCAggOAIHTTPTestBase):
                                       direct=True, metadata_namespace='somenamespace')
         study_3._aggregator_identifier.set_value('third_identifier')
         studies = [study_1, study_2, study_3]
-        self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple(
+        self._mock_query_multiple.side_effect = _query_multiple(
             {'studies': studies,
              'variables': [],
-             'questions': []}))
+             'questions': []})
         for mdprefix in MD_PREFIXES:
             with self.subTest(metadata_prefix=mdprefix):
                 if mdprefix == 'oai_datacite':
@@ -1373,8 +1370,7 @@ class TestConfigurations(CDCAggOAIHTTPTestBase):
     # IDENTIFY
 
     def test_GET_identify_returns_changed_deletedRecord(self):
-        study = Study()
-        self._mock_query_single.side_effect = mock_coro(study)
+        self._mock_query_single.return_value = Study()
         resp_xml = TestHTTPResponses.resp_to_xmlel(self.fetch(OAI_URL + '?verb=Identify'))
         self.assertEqual(''.join(resp_xml.find('./oai:Identify/oai:deletedRecord', XMLNS).itertext()),
                          'persistent')
@@ -1427,12 +1423,12 @@ class TestNoXMLStylesheet(CDCAggOAIHTTPTestBase):
         return self._assert_no_stylesheet(response)
 
     def test_get_record(self):
-        self._mock_query_single.side_effect = mock_coro(func=_query_single(_study_for_oaidc()))
+        self._mock_query_single.side_effect = _query_single(_study_for_oaidc())
         self._assert_method(self.fetch(OAI_URL + '?verb=GetRecord&identifier=someid&metadataPrefix=oai_dc'))
 
     def test_list_records(self):
-        self._mock_query_count.side_effect = mock_coro(1)
-        self._mock_query_multiple.side_effect = mock_coro(func=_query_multiple({'studies': [_study_for_oaidc()]}))
+        self._mock_query_count.return_value = 1
+        self._mock_query_multiple.side_effect = _query_multiple({'studies': [_study_for_oaidc()]})
         self._assert_method(self.fetch(OAI_URL + '?verb=ListRecords&metadataPrefix=oai_dc'))
 
 
