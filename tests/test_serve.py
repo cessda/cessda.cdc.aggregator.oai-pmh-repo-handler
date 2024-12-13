@@ -1398,6 +1398,7 @@ class TestQueries(CDCAggOAIHTTPTestBase):
             'publishers',
             'geographic_coverages',
             'publication_dates',
+            'distribution_dates',
             'copyrights',
             'file_names',
             'identifiers',

@@ -579,6 +579,7 @@ class AggOAIDDI25MetadataFormat(AggMetadataFormatBase):
                 self.study_class.parallel_titles,
                 self.study_class.principal_investigators,
                 self.study_class.publication_dates,
+                self.study_class.distribution_dates,
                 self.study_class.publication_years,
                 self.study_class.keywords,
                 self.study_class.time_methods,
