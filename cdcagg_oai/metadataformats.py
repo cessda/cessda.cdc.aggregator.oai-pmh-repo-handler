@@ -585,6 +585,7 @@ class AggOAIDDI25MetadataFormat(AggMetadataFormatBase):
                 self.study_class.sampling_procedures,
                 self.study_class.collection_modes,
                 self.study_class.analysis_units,
+                self.study_class.research_instruments,
                 self.study_class.collection_periods,
                 self.study_class.classifications,
                 self.study_class.abstract,

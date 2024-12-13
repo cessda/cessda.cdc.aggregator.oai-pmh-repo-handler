@@ -1,5 +1,5 @@
 # Indirect
-tornado==6.4.1
+tornado==6.4.2
 ConfigArgParse==1.7
 py12flogging==0.7.0
 six==1.16.0
@@ -10,8 +10,9 @@ PyYAML==6.0.2
 prometheus-client==0.20.0
 
 # CDCAGG shared library
-git+https://github.com/cessda/cessda.cdc.aggregator.shared-library@0.8.1#egg=cdcagg_common
+# TODO Use version when released
+git+https://github.com/cessda/cessda.cdc.aggregator.shared-library@48-support-more-ddi-c-elements#egg=cdcagg_common
 # Kuha Common
-git+https://gitlab.tuni.fi/fsd/kuha_common@2.5.0#egg=kuha_common
+git+https://gitlab.tuni.fi/fsd/kuha_common@2.6.0#egg=kuha_common
 # Kuha OAI-PMH Repo Handler
-git+https://gitlab.tuni.fi/fsd/kuha_oai_pmh_repo_handler@1.8.0#egg=kuha_oai_pmh_repo_handler
+git+https://gitlab.tuni.fi/fsd/kuha_oai_pmh_repo_handler@1.9.0#egg=kuha_oai_pmh_repo_handler
