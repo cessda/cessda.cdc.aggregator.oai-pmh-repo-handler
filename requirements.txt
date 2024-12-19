@@ -10,8 +10,7 @@ PyYAML==6.0.2
 prometheus-client==0.20.0
 
 # CDCAGG shared library
-# TODO Use version when released
-git+https://github.com/cessda/cessda.cdc.aggregator.shared-library@48-support-more-ddi-c-elements#egg=cdcagg_common
+git+https://github.com/cessda/cessda.cdc.aggregator.shared-library@0.9.0#egg=cdcagg_common
 # Kuha Common
 git+https://gitlab.tuni.fi/fsd/kuha_common@2.6.0#egg=kuha_common
 # Kuha OAI-PMH Repo Handler
