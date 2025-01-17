@@ -18,6 +18,7 @@ from inspect import iscoroutinefunction
 from unittest import mock, TestCase
 
 from kuha_common.document_store.constants import REC_STATUS_DELETED
+from kuha_common.document_store.mappings.xmlbase import element_strip_descendant_text
 
 from kuha_oai_pmh_repo_handler import metadataformats as kuha_metadataformats
 from cdcagg_common.records import Study
@@ -422,6 +423,120 @@ class TestHTTPResponses(CDCAggOAIHTTPTestBase):
             lang = doc_titl_el.get('{%s}lang' % (xmlns['xml'],))
             exp_title = expected.pop(lang)
             self.assertEqual(''.join(doc_titl_el.itertext()), exp_title)
+        self.assertEqual(expected, {})
+
+    def test_GET_getrecord_oai_ddi25_returns_conditions_elementversion_attribute(self):
+        study = Study()
+        study.add_study_number("some_number")
+        study._aggregator_identifier.add_value("agg_id_1")
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        study.add_data_access_descriptions("some conditions", "en", element_version="elem_vers")
+        study.add_data_access_descriptions("joku conditions", "fi")
+        resp_el = self.resp_to_xmlel(self.oai_request(
+            study, verb="GetRecord", metadata_prefix="oai_ddi25", identifier="someid"))
+        xmlns = dict(**XMLNS, **{'ddi': 'ddi:codebook:2_5', 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        cond_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata/ddi:codeBook/ddi:stdyDscr/ddi:dataAccs/ddi:useStmt/ddi:conditions',
+            xmlns)
+        self.assertEqual(len(cond_els), 2)
+        expected = {'fi': ('joku conditions', None),
+                    'en': ('some conditions', 'elem_vers')}
+        for cond_el in cond_els:
+            lang = cond_el.get('{%s}lang' % (xmlns['xml'],))
+            exp_value, exp_elem_vers = expected.pop(lang)
+            self.assertEqual(''.join(cond_el.itertext()), exp_value)
+            self.assertEqual(cond_el.get('elementVersion'), exp_elem_vers)
+        self.assertEqual(expected, {})
+
+    def test_GET_getrecord_oai_ddi25_returns_distdate(self):
+        study = Study()
+        study.add_study_number("some_number")
+        study._aggregator_identifier.add_value("agg_id_1")
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        study.add_distribution_dates("1984", "en", description="Year 1984")
+        study.add_distribution_dates("1984", "fi", description="Vuosi 1984")
+        resp_el = self.resp_to_xmlel(self.oai_request(
+            study, verb="GetRecord", metadata_prefix="oai_ddi25", identifier="someid"))
+        xmlns = dict(**XMLNS, **{'ddi': 'ddi:codebook:2_5', 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        distdate_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata/ddi:codeBook/ddi:stdyDscr/ddi:citation/ddi:distStmt/ddi:distDate',
+            xmlns)
+        self.assertEqual(len(distdate_els), 2)
+        expected = {'fi': ('Vuosi 1984', '1984'),
+                    'en': ('Year 1984', '1984')}
+        for distdate_el in distdate_els:
+            lang = distdate_el.get('{%s}lang' % (xmlns['xml'],))
+            exp_value, exp_date = expected.pop(lang)
+            self.assertEqual(''.join(distdate_el.itertext()), exp_value)
+            self.assertEqual(distdate_el.get('date'), exp_date)
+        self.assertEqual(expected, {})
+
+    def test_GET_getrecord_oai_ddi25_returns_resinstru(self):
+        study = Study()
+        study.add_study_number("some_number")
+        study._aggregator_identifier.add_value("agg_id_1")
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        study.add_research_instruments('some.resinstru', 'en', system_name='vocab',
+                                       uri='vocaburi', description='some research instrument')
+        study.add_research_instruments('other.resinstru', 'fi', system_name='sanasto',
+                                       uri='sanastouri', description='joku research instrument')
+        resp_el = self.resp_to_xmlel(self.oai_request(
+            study, verb='GetRecord', metadata_prefix='oai_ddi25', identifier='someid'))
+        xmlns = dict(**XMLNS, **{'ddi': 'ddi:codebook:2_5', 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        resinstru_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata/ddi:codeBook/ddi:stdyDscr/ddi:method/ddi:dataColl/ddi:resInstru',
+            xmlns)
+        self.assertEqual(len(resinstru_els), 2)
+        expected = {'en': ('some.resinstru', 'vocab', 'vocaburi', 'some research instrument'),
+                    'fi': ('other.resinstru', 'sanasto', 'sanastouri', 'joku research instrument')}
+        for resinstru_el in resinstru_els:
+            lang = resinstru_el.get('{%s}lang' % (xmlns['xml'],))
+            exp_concept, exp_vocab, exp_vocaburi, exp_desc = expected.pop(lang)
+            concept_els = resinstru_el.findall('./ddi:concept', xmlns)
+            self.assertEqual(len(concept_els), 1)
+            concept_el = concept_els[0]
+            self.assertEqual(''.join(concept_el.itertext()), exp_concept)
+            self.assertEqual(concept_el.get('vocab'), exp_vocab)
+            self.assertEqual(concept_el.get('vocabURI'), exp_vocaburi)
+            self.assertEqual(element_strip_descendant_text(resinstru_el), exp_desc)
+        self.assertEqual(expected, {})
+
+    def test_GET_getrecord_oai_ddi25_returns_colldate(self):
+        study = Study()
+        study.add_study_number("some_number")
+        study._aggregator_identifier.add_value("agg_id_1")
+        study._provenance.add_value('someharvestdate', altered=True,
+                                    base_url='http://somebaseurl',
+                                    identifier='someidentifier', datestamp='somedatestamp',
+                                    direct=True, metadata_namespace='somenamespace')
+        study.add_collection_periods('2000-01-02', 'fi', event='single')
+        study.add_collection_periods('2000-01-03', 'en', event='start', description='January 2000')
+        study.add_collection_periods('2000-02-04', 'en', event='end', description='February 2000')
+        resp_el = self.resp_to_xmlel(self.oai_request(
+            study, verb='GetRecord', metadata_prefix='oai_ddi25', identifier='someid'))
+        xmlns = dict(**XMLNS, **{'ddi': 'ddi:codebook:2_5', 'xml': 'http://www.w3.org/XML/1998/namespace'})
+        colldate_els = resp_el.findall(
+            './oai:GetRecord/oai:record/oai:metadata/ddi:codeBook/ddi:stdyDscr/ddi:stdyInfo/ddi:sumDscr/ddi:collDate',
+            xmlns)
+        self.assertEqual(len(colldate_els), 3)
+        expected = {'2000-01-02': ('fi', 'single', ''),
+                    '2000-01-03': ('en', 'start', 'January 2000'),
+                    '2000-02-04': ('en', 'end', 'February 2000')}
+        for colldate_el in colldate_els:
+            date = colldate_el.get('date')
+            exp_lang, exp_event, exp_desc = expected.pop(date)
+            self.assertEqual(colldate_el.get('{%s}lang' % (xmlns['xml'],)), exp_lang)
+            self.assertEqual(colldate_el.get('event'), exp_event)
+            self.assertEqual(''.join(colldate_el.itertext()), exp_desc)
         self.assertEqual(expected, {})
 
     # TEST OAI DATACITE
@@ -1283,10 +1398,12 @@ class TestQueries(CDCAggOAIHTTPTestBase):
             'publishers',
             'geographic_coverages',
             'publication_dates',
+            'distribution_dates',
             'copyrights',
             'file_names',
             'identifiers',
             'analysis_units',
+            'research_instruments',
             'time_methods',
             'universes',
             'publication_years',

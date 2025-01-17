@@ -5,6 +5,33 @@ All notable changes to the CDC Aggregator OAI-PMH Repo Handler will be documente
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 
+## 0.10.0 - 2025-01-17
+
+### Added
+
+- Support more DDI-C elements in `oai_ddi25`
+  metadataprefix. (Implements
+  [#77](https://github.com/cessda/cessda.cdc.aggregator.oai-pmh-repo-handler/issues/77))
+
+  - `/codeBook/stdyDscr/dataAccs/useStmt/conditions/@elementVersion`
+  - `/codeBook/stdyDscr/citation/distStmt/distDate` CDATA
+  - `/codeBook/stdyDscr/method/dataColl/resInstru`,
+    `/codeBook/stdyDscr/method/dataColl/resInstru@xml:lang`,
+    `/codeBook/stdyDscr/method/dataColl/resInstru/concept`,
+    `/codeBook/stdyDscr/method/dataColl/resInstru/concept/@vocab`,
+    `/codeBook/stdyDscr/method/dataColl/resInstru/concept/@vocabURI`
+  - `/codeBook/stdyDscr/stdyInfo/sumDscr/collDate` CDATA
+
+### Changed
+
+- Update dependencies in requirements.txt:
+
+  - Tornado 6.4.2
+  - CESSDA Aggregator Shared Library 0.9.0
+  - Kuha Common 2.6.0
+  - Kuha OAI-PMH Repo Handler 1.9.0
+
+
 ## 0.9.0 - 2024-09-06
 
 ### Added
