@@ -1,4 +1,4 @@
-# Copyright CESSDA ERIC 2021
+# Copyright CESSDA ERIC 2021-2025
 #
 # Licensed under the EUPL, Version 1.2 (the "License"); you may not
 # use this file except in compliance with the License.
