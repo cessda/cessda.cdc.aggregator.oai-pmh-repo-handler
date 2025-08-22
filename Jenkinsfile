@@ -71,8 +71,9 @@ node(node_label) {
                 """
             }
             stage('Publish Cobertura Report') {
-                cobertura(coberturaReportFile: "${coverage_xml_path}",
-                          zoomCoverageChart: false)
+                recordCoverage(tools: [[parser: 'COBERTURA',
+                                        pattern:  "${coverage_xml_path}"]],
+                               sourceCodeRetention: 'LAST_BUILD')
             }
             stage('Clean up tox-env') {
                 if (fileExists(toxEnvName)) {
